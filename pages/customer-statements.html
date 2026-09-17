@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Customer Statements | JK Database</title>
+    <link rel="stylesheet" href="../assets/css/style.css" />
+  </head>
+  <body>
+    <div class="layout">
+      <aside class="sidebar"></aside>
+      <main class="content">
+        <div class="topbar">
+          <div>
+            <h1>Customer Statements</h1>
+            <div class="sub">
+              Invoices, payments and current balance by customer
+            </div>
+          </div>
+          <button class="btn" data-click="print">Print</button>
+        </div>
+        <div class="card">
+          <div class="formgrid">
+            <div class="field">
+              <label>Customer</label
+              ><select id="customer"></select>
+            </div>
+            <div class="field">
+              <label>From</label><input id="from" type="date" />
+            </div>
+            <div class="field">
+              <label>To</label><input id="to" type="date" />
+            </div>
+          </div>
+        </div>
+        <div id="summary" class="cards" style="margin-top: 14px"></div>
+        <div id="list" style="margin-top: 14px"></div>
+      </main>
+    </div>
+    <script
+      type="module"
+      src="../assets/js/pages/customer-statements.js"
+    ></script>
+  </body>
+</html>

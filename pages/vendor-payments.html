@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Vendor Payments | JK Database</title>
+    <link rel="stylesheet" href="../assets/css/style.css" />
+  </head>
+  <body>
+    <div class="layout">
+      <aside class="sidebar"></aside>
+      <main class="content">
+        <div class="topbar">
+          <div>
+            <h1>Vendor Payments</h1>
+            <div class="sub">Track money paid against supplier bills</div>
+          </div>
+          <button class="btn primary" data-click="open">
+            + Record Payment
+          </button>
+        </div>
+        <div id="list"></div>
+        <dialog id="dlg">
+          <form id="form" class="modal">
+            <h2>Record Vendor Payment</h2>
+            <div class="formgrid">
+              <div class="field full">
+                <label>Purchase Bill</label
+                ><select name="purchaseId" id="purchase"></select>
+              </div>
+              <div class="field">
+                <label>Date</label><input name="date" id="date" type="date" />
+              </div>
+              <div class="field">
+                <label>Amount</label
+                ><input name="amount" type="number" step=".01" min=".01" />
+              </div>
+              <div class="field">
+                <label>Method</label
+                ><select name="method">
+                  <option>Bank Transfer</option>
+                  <option>Cheque</option>
+                  <option>Credit Card</option>
+                  <option>Cash</option>
+                  <option>E-Transfer</option>
+                  <option>Other</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Reference</label><input name="reference" />
+              </div>
+            </div>
+            <div class="footer">
+              <button type="button" class="btn" data-click="close">
+                Cancel</button
+              ><button class="btn primary">Save Payment</button>
+            </div>
+          </form>
+        </dialog>
+      </main>
+    </div>
+    <script type="module" src="../assets/js/pages/vendor-payments.js"></script>
+  </body>
+</html>

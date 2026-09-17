@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Returns | JK Database</title>
+    <link rel="stylesheet" href="../assets/css/style.css" />
+  </head>
+  <body>
+    <div class="layout">
+      <aside class="sidebar"></aside>
+      <main class="content">
+        <div class="topbar">
+          <div>
+            <h1>Returns & Credit Notes</h1>
+            <div class="sub">
+              Credit the original invoice; refund available credit from Payments
+              after paying the customer.
+            </div>
+          </div>
+          <button class="btn primary" data-click="open">+ Record Return</button>
+        </div>
+        <div id="list"></div>
+        <dialog id="dlg">
+          <form id="form" class="modal">
+            <h2>Record Return</h2>
+            <div class="formgrid">
+              <div class="field">
+                <label>Invoice</label
+                ><select name="invoiceId" id="invoice"></select>
+              </div>
+              <div class="field">
+                <label>Date</label><input name="date" id="date" type="date" />
+              </div>
+              <div class="field">
+                <label>Original invoice line</label
+                ><select name="lineId" id="product"></select>
+              </div>
+              <div class="field">
+                <label>Quantity returned</label
+                ><input name="qty" type="number" min="0" step=".01" value="1" />
+              </div>
+              <div class="field">
+                <label>Calculated credit (including HST)</label
+                ><input name="amount" readonly /><small id="returnHint"></small>
+              </div>
+              <div class="field">
+                <label>Return to stock?</label
+                ><select name="restock">
+                  <option value="yes">Yes</option>
+                  <option value="no">No</option>
+                </select>
+              </div>
+              <div class="field full">
+                <label>Reason / notes</label><input name="reason" />
+              </div>
+            </div>
+            <div class="footer">
+              <button type="button" class="btn" data-click="close">
+                Cancel</button
+              ><button class="btn primary">Save Return</button>
+            </div>
+          </form>
+        </dialog>
+      </main>
+    </div>
+    <script type="module" src="../assets/js/pages/returns.js"></script>
+  </body>
+</html>

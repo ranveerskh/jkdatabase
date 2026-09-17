@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#0b1220" />
+    <title>Expenses | JK Database</title>
+    <link rel="stylesheet" href="../assets/css/style.css" />
+  </head>
+  <body>
+    <div class="layout">
+      <aside class="sidebar"></aside>
+      <main class="content">
+        <div class="topbar">
+          <div>
+            <h1>Expenses</h1>
+            <div class="sub">Track operating costs and HST paid</div>
+          </div>
+          <div class="actions">
+            <button class="btn primary" data-click="open">+ Add Expense</button>
+          </div>
+        </div>
+        <div class="toolbar">
+          <input class="search" id="search" placeholder="Search expenses..." />
+          <div class="note" id="count"></div>
+        </div>
+        <div id="list"></div>
+        <dialog id="dlg">
+          <form class="modal" id="form">
+            <h2>Add Expense</h2>
+            <div class="formgrid">
+              <div class="field">
+                <label>Date</label><input name="date" id="date" type="date" />
+              </div>
+              <div class="field">
+                <label>Category</label
+                ><select name="category">
+                  <option>Advertising</option>
+                  <option>Bank Fees</option>
+                  <option>Fuel / Vehicle</option>
+                  <option>Insurance</option>
+                  <option>Meals</option>
+                  <option>Office</option>
+                  <option>Professional Fees</option>
+                  <option>Rent</option>
+                  <option>Repairs</option>
+                  <option>Supplies</option>
+                  <option>Telephone / Internet</option>
+                  <option>Utilities</option>
+                  <option>Other</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Payee</label><input name="payee" />
+              </div>
+              <div class="field">
+                <label>Payment method</label
+                ><select name="method">
+                  <option>Cash</option>
+                  <option>Debit</option>
+                  <option>Credit Card</option>
+                  <option>E-Transfer</option>
+                  <option>Bank</option>
+                  <option>Other</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Total amount</label
+                ><input name="amount" type="number" step=".01" />
+              </div>
+              <div class="field">
+                <label>HST included</label
+                ><input name="tax" type="number" step=".01" />
+              </div>
+              <div class="field full">
+                <label>Description / receipt reference</label
+                ><input name="description" />
+              </div>
+            </div>
+            <div class="footer">
+              <button type="button" class="btn" data-click="close">
+                Cancel</button
+              ><button class="btn primary">Save Expense</button>
+            </div>
+          </form>
+        </dialog>
+      </main>
+    </div>
+    <script type="module" src="../assets/js/pages/expenses.js"></script>
+  </body>
+</html>

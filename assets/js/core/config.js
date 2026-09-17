@@ -1,0 +1,47 @@
+export const APP_NAME = "JK Database";
+export const DB_KEY = "jkDatabaseV6",
+  DB_VERSION = 6,
+  RECOVERY_KEY = "jkDatabaseV6Recovery";
+export const LEGACY_KEYS = [
+  "jkDatabaseV5",
+  "jkDatabaseV4",
+  "jkDatabaseV3",
+  "businessManagerProV2",
+  "businessManagerLocalV1",
+];
+export const COLLECTIONS = [
+  "customers",
+  "vendors",
+  "products",
+  "invoices",
+  "purchases",
+  "expenses",
+  "payments",
+  "vendorPayments",
+  "quotes",
+  "returns",
+  "audit",
+  "stockLedger",
+  "creditTransfers",
+  "refunds",
+];
+export const DEFAULT_SETTINGS = {
+  businessName: "JK Database",
+  legalName: "",
+  hstNo: "",
+  hstRate: 13,
+  currency: "CAD",
+  address: "",
+  phone: "",
+  email: "",
+  invoicePrefix: "INV",
+  nextInvoice: 1,
+  quotePrefix: "QT",
+  nextQuote: 1,
+  returnPrefix: "RT",
+  nextReturn: 1,
+  purchasePrefix: "PB",
+  nextPurchase: 1,
+  lowStockDefault: 5,
+  allowNegativeStock: false,
+};

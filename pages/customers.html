@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#0b1220" />
+    <title>Customers | JK Database</title>
+    <link rel="stylesheet" href="../assets/css/style.css" />
+  </head>
+  <body>
+    <div class="layout">
+      <aside class="sidebar"></aside>
+      <main class="content">
+        <div class="topbar">
+          <div>
+            <h1>Customers</h1>
+            <div class="sub">Manage customers and related business records</div>
+          </div>
+          <div class="actions">
+            <button class="btn primary" data-click="add">+ Add Customer</button>
+          </div>
+        </div>
+        <div class="toolbar">
+          <input class="search" id="search" placeholder="Search customers..." />
+          <div class="note" id="count"></div>
+        </div>
+        <div id="list"></div>
+        <dialog id="dlg">
+          <form class="modal" id="form">
+            <h2 id="modalTitle">Add Customer</h2>
+            <p class="hint">Information is saved locally on this device.</p>
+            <input type="hidden" name="id" />
+            <div class="formgrid">
+              <div class="field">
+                <label>Customer / company name</label
+                ><input name="name" type="text" />
+              </div>
+              <div class="field">
+                <label>Contact person</label
+                ><input name="contact" type="text" />
+              </div>
+              <div class="field">
+                <label>Phone</label><input name="phone" type="text" />
+              </div>
+              <div class="field">
+                <label>Email</label><input name="email" type="email" />
+              </div>
+              <div class="field">
+                <label>Billing address</label
+                ><input name="address" type="text" />
+              </div>
+              <div class="field">
+                <label>Notes</label><input name="notes" type="text" />
+              </div>
+            </div>
+            <div class="footer">
+              <button type="button" class="btn" data-click="close">
+                Cancel</button
+              ><button class="btn primary">Save Customer</button>
+            </div>
+          </form>
+        </dialog>
+      </main>
+    </div>
+    <script type="module" src="../assets/js/pages/customers.js"></script>
+  </body>
+</html>

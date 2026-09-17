@@ -1,0 +1,55 @@
+body {
+  font:
+    14px Arial,
+    sans-serif;
+  color: #142033;
+  max-width: 850px;
+  margin: 36px auto;
+  padding: 20px;
+}
+header {
+  display: flex;
+  justify-content: space-between;
+  gap: 30px;
+}
+h1 {
+  margin: 0;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 25px 0;
+}
+th,
+td {
+  text-align: left;
+  border-bottom: 1px solid #ccd2da;
+  padding: 12px;
+}
+section {
+  margin-left: auto;
+  width: 320px;
+}
+section p {
+  display: flex;
+  justify-content: space-between;
+}
+.lines {
+  white-space: pre-line;
+}
+button {
+  padding: 10px 15px;
+  margin-bottom: 25px;
+}
+@media print {
+  button {
+    display: none;
+  }
+  body {
+    margin: 0;
+    max-width: none;
+  }
+  tr {
+    break-inside: avoid;
+  }
+}

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#0b1220" />
+    <title>Dashboard | JK Database</title>
+    <link rel="stylesheet" href="assets/css/style.css" />
+  </head>
+  <body>
+    <div class="layout">
+      <aside class="sidebar"></aside>
+      <main class="content">
+        <div class="topbar">
+          <div>
+            <h1>Dashboard</h1>
+            <div class="sub">Business overview and items needing attention</div>
+          </div>
+          <div class="actions"></div>
+        </div>
+        <div class="cards" id="kpis"></div>
+        <div class="two">
+          <div class="card">
+            <h3 class="section-title">Recent Invoices</h3>
+            <div id="recent"></div>
+          </div>
+          <div class="card">
+            <h3 class="section-title">Inventory Attention</h3>
+            <div id="low"></div>
+          </div>
+        </div>
+        <div class="two">
+          <div class="card">
+            <h3 class="section-title">Receivables</h3>
+            <div id="receivables"></div>
+          </div>
+          <div class="card">
+            <h3 class="section-title">Business Snapshot</h3>
+            <div id="snapshot"></div>
+          </div>
+        </div>
+      </main>
+    </div>
+    <script type="module" src="assets/js/pages/dashboard.js"></script>
+  </body>
+</html>

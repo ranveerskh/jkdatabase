@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#0b1220" />
+    <title>Payments | JK Database</title>
+    <link rel="stylesheet" href="../assets/css/style.css" />
+  </head>
+  <body>
+    <div class="layout">
+      <aside class="sidebar"></aside>
+      <main class="content">
+        <div class="topbar">
+          <div>
+            <h1>Payments</h1>
+            <div class="sub">Track customer payments and invoice balances</div>
+          </div>
+          <div class="actions">
+            <button class="btn primary" data-click="open">
+              + Record Payment
+            </button>
+          </div>
+        </div>
+        <div class="toolbar">
+          <input class="search" id="search" placeholder="Search payments..." />
+          <div class="note" id="count"></div>
+        </div>
+        <div id="list"></div>
+        <dialog id="dlg">
+          <form class="modal" id="form">
+            <h2>Record Payment</h2>
+            <p class="hint">
+              Apply a customer payment against an existing invoice.
+            </p>
+            <div class="formgrid">
+              <div class="field full">
+                <label>Invoice</label
+                ><select name="invoiceId" id="invoice"></select>
+              </div>
+              <div class="field">
+                <label>Date</label><input name="date" id="date" type="date" />
+              </div>
+              <div class="field">
+                <label>Amount</label
+                ><input name="amount" type="number" min=".01" step=".01" />
+              </div>
+              <div class="field">
+                <label>Method</label
+                ><select name="method">
+                  <option>Cash</option>
+                  <option>Debit</option>
+                  <option>Credit Card</option>
+                  <option>E-Transfer</option>
+                  <option>Cheque</option>
+                  <option>Bank Transfer</option>
+                  <option>Other</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Reference</label><input name="reference" />
+              </div>
+              <div class="field full">
+                <label>Notes</label><input name="notes" />
+              </div>
+            </div>
+            <div class="footer">
+              <button type="button" class="btn" data-click="close">
+                Cancel</button
+              ><button class="btn primary">Save Payment</button>
+            </div>
+          </form>
+        </dialog>
+      </main>
+    </div>
+    <script type="module" src="../assets/js/pages/payments.js"></script>
+  </body>
+</html>

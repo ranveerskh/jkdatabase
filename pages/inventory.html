@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#0b1220" />
+    <title>Inventory | JK Database</title>
+    <link rel="stylesheet" href="../assets/css/style.css" />
+  </head>
+  <body>
+    <div class="layout">
+      <aside class="sidebar"></aside>
+      <main class="content">
+        <div class="topbar">
+          <div>
+            <h1>Inventory</h1>
+            <div class="sub">Manage inventory and related business records</div>
+          </div>
+          <div class="actions">
+            <button class="btn primary" data-click="add">+ Add Item</button>
+          </div>
+        </div>
+        <div class="toolbar">
+          <input class="search" id="search" placeholder="Search inventory..." />
+          <div class="note" id="count"></div>
+        </div>
+        <div id="list"></div>
+        <dialog id="dlg">
+          <form class="modal" id="form">
+            <h2 id="modalTitle">Add Item</h2>
+            <p class="hint">Information is saved locally on this device.</p>
+            <input type="hidden" name="id" />
+            <div class="formgrid">
+              <div class="field">
+                <label>SKU</label><input name="sku" type="text" />
+              </div>
+              <div class="field">
+                <label>Product / service name</label
+                ><input name="name" type="text" />
+              </div>
+              <div class="field">
+                <label>Quantity on hand</label
+                ><input name="qty" type="number" step=".01" />
+              </div>
+              <div class="field">
+                <label>Low-stock threshold</label
+                ><input name="low" type="number" step=".01" />
+              </div>
+              <div class="field">
+                <label>Cost price</label
+                ><input name="cost" type="number" step=".01" />
+              </div>
+              <div class="field">
+                <label>Selling price</label
+                ><input name="price" type="number" step=".01" />
+              </div>
+              <div class="field">
+                <label>Unit</label><input name="unit" type="text" />
+              </div>
+            </div>
+            <div class="footer">
+              <button type="button" class="btn" data-click="close">
+                Cancel</button
+              ><button class="btn primary">Save Item</button>
+            </div>
+          </form>
+        </dialog>
+      </main>
+    </div>
+    <script type="module" src="../assets/js/pages/inventory.js"></script>
+  </body>
+</html>

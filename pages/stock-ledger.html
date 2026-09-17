@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Stock Ledger | JK Database</title>
+    <link rel="stylesheet" href="../assets/css/style.css" />
+  </head>
+  <body>
+    <div class="layout">
+      <aside class="sidebar"></aside>
+      <main class="content">
+        <div class="topbar">
+          <div>
+            <h1>Stock Ledger</h1>
+            <div class="sub">
+              Every stock movement with running product balance
+            </div>
+          </div>
+          <button class="btn primary" data-click="open">
+            + Manual Adjustment
+          </button>
+        </div>
+        <div class="toolbar">
+          <input id="search" class="search" placeholder="Search movements..." />
+        </div>
+        <div id="list"></div>
+        <dialog id="dlg">
+          <form id="form" class="modal">
+            <h2>Manual Stock Adjustment</h2>
+            <div class="formgrid">
+              <div class="field">
+                <label>Product</label
+                ><select name="productId" id="product"></select>
+              </div>
+              <div class="field">
+                <label>Quantity change</label
+                ><input
+                  name="qty"
+                  type="number"
+                  step=".01"
+                  placeholder="Use - for stock out"
+                />
+              </div>
+              <div class="field full">
+                <label>Reason</label><input name="reason" />
+              </div>
+            </div>
+            <div class="footer">
+              <button type="button" class="btn" data-click="close">
+                Cancel</button
+              ><button class="btn primary">Save Adjustment</button>
+            </div>
+          </form>
+        </dialog>
+      </main>
+    </div>
+    <script type="module" src="../assets/js/pages/stock-ledger.js"></script>
+  </body>
+</html>

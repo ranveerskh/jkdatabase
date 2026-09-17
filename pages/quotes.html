@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Quotes | JK Database</title>
+    <link rel="stylesheet" href="../assets/css/style.css" />
+  </head>
+  <body>
+    <div class="layout">
+      <aside class="sidebar"></aside>
+      <main class="content">
+        <div class="topbar">
+          <div>
+            <h1>Quotes</h1>
+            <div class="sub">
+              Prepare estimates and convert approved quotes into invoices
+            </div>
+          </div>
+          <button class="btn primary" data-click="open">+ New Quote</button>
+        </div>
+        <div class="toolbar">
+          <input id="search" class="search" placeholder="Search quotes..." />
+          <div class="note" id="count"></div>
+        </div>
+        <div id="list"></div>
+        <dialog id="dlg">
+          <form id="form" class="modal">
+            <h2>New Quote</h2>
+            <div class="formgrid">
+              <div class="field">
+                <label>Customer</label
+                ><select name="customerId" id="customer"></select>
+              </div>
+              <div class="field">
+                <label>Manual customer</label><input name="manualCustomer" />
+              </div>
+              <div class="field">
+                <label>Date</label><input name="date" id="date" type="date" />
+              </div>
+              <div class="field">
+                <label>Valid until</label
+                ><input name="validUntil" id="validUntil" type="date" />
+              </div>
+              <div class="field">
+                <label>Subtotal</label
+                ><input name="subtotal" type="number" step=".01" />
+              </div>
+              <div class="field">
+                <label>Discount</label
+                ><input name="discount" type="number" step=".01" value="0" />
+              </div>
+              <div class="field full">
+                <label>Description / scope</label
+                ><textarea name="description"></textarea>
+              </div>
+            </div>
+            <div class="footer">
+              <button type="button" class="btn" data-click="close">
+                Cancel</button
+              ><button class="btn primary">Save Quote</button>
+            </div>
+          </form>
+        </dialog>
+      </main>
+    </div>
+    <script type="module" src="../assets/js/pages/quotes.js"></script>
+  </body>
+</html>

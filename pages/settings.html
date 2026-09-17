@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#0b1220" />
+    <title>Settings & Backup | JK Database</title>
+    <link rel="stylesheet" href="../assets/css/style.css" />
+  </head>
+  <body>
+    <div class="layout">
+      <aside class="sidebar"></aside>
+      <main class="content">
+        <div class="topbar">
+          <div>
+            <h1>Settings & Backup</h1>
+            <div class="sub">
+              Business identity, numbering, tax and data protection
+            </div>
+          </div>
+          <div class="actions"></div>
+        </div>
+        <div class="two">
+          <div class="card">
+            <h3 class="section-title">Business Profile</h3>
+            <form id="form">
+              <div class="formgrid">
+                <div class="field">
+                  <label>Display name</label><input name="businessName" />
+                </div>
+                <div class="field">
+                  <label>Legal name</label><input name="legalName" />
+                </div>
+                <div class="field">
+                  <label>HST number</label><input name="hstNo" />
+                </div>
+                <div class="field">
+                  <label>HST rate %</label
+                  ><input name="hstRate" type="number" step=".01" />
+                </div>
+                <div class="field">
+                  <label>Phone</label><input name="phone" />
+                </div>
+                <div class="field">
+                  <label>Email</label><input name="email" type="email" />
+                </div>
+                <div class="field full">
+                  <label>Address</label><textarea name="address"></textarea>
+                </div>
+                <div class="field">
+                  <label>Currency</label
+                  ><select name="currency">
+                    <option>CAD</option>
+                    <option>USD</option>
+                    <option>INR</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label>Invoice prefix</label><input name="invoicePrefix" />
+                </div>
+                <div class="field">
+                  <label>Next invoice number</label
+                  ><input name="nextInvoice" type="number" />
+                </div>
+                <div class="field">
+                  <label>Default low-stock level</label
+                  ><input name="lowStockDefault" type="number" />
+                </div>
+                <div class="field">
+                  <label>Allow negative stock</label
+                  ><select name="allowNegativeStock">
+                    <option value="false">No</option>
+                    <option value="true">Yes</option>
+                  </select>
+                </div>
+              </div>
+              <div class="actions" style="margin-top: 14px">
+                <button class="btn primary">Save Settings</button>
+              </div>
+            </form>
+          </div>
+          <div>
+            <div class="card">
+              <h3 class="section-title">Backup & Restore</h3>
+              <p class="note">
+                JK Database currently stores records in this browser's
+                localStorage. Keep backups, especially before browser cleanup or
+                moving devices.
+              </p>
+              <div class="actions">
+                <button class="btn" id="backup">Download Full Backup</button
+                ><button class="btn" id="recovery">
+                  Download Previous Save</button
+                ><label class="btn"
+                  >Restore Backup<input
+                    id="restore"
+                    type="file"
+                    accept=".json"
+                    hidden
+                /></label>
+              </div>
+            </div>
+            <div class="card" style="margin-top: 16px">
+              <h3 class="section-title">Cloud Status</h3>
+              <p><span class="badge low">Local mode</span></p>
+              <p class="note">
+                This edition works in one browser. Cloud login, team permissions
+                and multi-device sync will be added separately.
+              </p>
+            </div>
+            <div class="card" style="margin-top: 16px">
+              <h3 class="section-title">CSV Imports</h3>
+              <p class="note">
+                CSV headings: name,email,phone,address for contacts;
+                name,sku,qty,cost,price,low,unit for products. IDs are
+                regenerated. Duplicate email/SKU rows are skipped; any invalid
+                row rejects the entire import.
+              </p>
+              <div class="actions">
+                <label class="btn"
+                  >Customers CSV<input
+                    type="file"
+                    id="importCustomers"
+                    accept=".csv"
+                    hidden /></label
+                ><label class="btn"
+                  >Vendors CSV<input
+                    type="file"
+                    id="importVendors"
+                    accept=".csv"
+                    hidden /></label
+                ><label class="btn"
+                  >Products CSV<input
+                    type="file"
+                    id="importProducts"
+                    accept=".csv"
+                    hidden
+                /></label>
+              </div>
+            </div>
+            <div class="card" style="margin-top: 16px">
+              <h3 class="section-title">Danger Zone</h3>
+              <button class="btn danger" id="reset">
+                Reset Active Database
+              </button>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+    <script type="module" src="../assets/js/pages/settings.js"></script>
+  </body>
+</html>

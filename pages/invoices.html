@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#0b1220" />
+    <title>Sales Invoices | JK Database</title>
+    <link rel="stylesheet" href="../assets/css/style.css" />
+  </head>
+  <body>
+    <div class="layout">
+      <aside class="sidebar"></aside>
+      <main class="content">
+        <div class="topbar">
+          <div>
+            <h1>Sales Invoices</h1>
+            <div class="sub">
+              Create invoices, track balances and print customer copies
+            </div>
+          </div>
+          <div class="actions">
+            <button class="btn" data-export="invoices">Export CSV</button
+            ><button class="btn primary" data-click="new-invoice">
+              + New Invoice
+            </button>
+          </div>
+        </div>
+        <div class="toolbar">
+          <input
+            class="search"
+            id="search"
+            placeholder="Search invoice, customer or status..."
+          />
+          <div class="note" id="count"></div>
+        </div>
+        <div id="list"></div>
+        <dialog id="dlg">
+          <form class="modal" id="form">
+            <h2 id="modalTitle">New Sales Invoice</h2>
+            <input name="id" type="hidden" />
+            <p class="hint">
+              Drafts do not change stock. Finalising locks the invoice and
+              records the sale.
+            </p>
+            <div class="formgrid">
+              <div class="field">
+                <label>Customer</label
+                ><select name="customerId" id="customer"></select>
+              </div>
+              <div class="field">
+                <label>Manual customer name</label
+                ><input name="manualCustomer" />
+              </div>
+              <div class="field">
+                <label>Invoice date</label
+                ><input name="date" type="date" id="date" />
+              </div>
+              <div class="field">
+                <label>Due date</label
+                ><input name="dueDate" type="date" id="dueDate" />
+              </div>
+              <div class="field">
+                <label>Discount</label
+                ><input name="discount" type="number" step=".01" value="0" />
+              </div>
+              <div class="field">
+                <label>Notes</label><input name="notes" />
+              </div>
+            </div>
+            <h3>Line Items</h3>
+            <div id="rows"></div>
+            <button type="button" class="btn" id="addRow">+ Add Line</button>
+            <div class="totals">
+              <div><span>Subtotal</span><b id="sub"></b></div>
+              <div><span>Discount</span><b id="disc"></b></div>
+              <div><span>HST</span><b id="tax"></b></div>
+              <div class="grand">
+                <span>Total</span><span id="total"></span>
+              </div>
+            </div>
+            <div class="footer">
+              <button type="button" class="btn" data-click="close">
+                Cancel</button
+              ><button type="submit" class="btn" value="draft">
+                Save Draft</button
+              ><button type="submit" class="btn primary" value="finalise">
+                Finalise Invoice
+              </button>
+            </div>
+          </form>
+        </dialog>
+      </main>
+    </div>
+    <script type="module" src="../assets/js/pages/invoices.js"></script>
+  </body>
+</html>

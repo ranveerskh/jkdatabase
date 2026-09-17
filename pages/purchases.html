@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Purchase Bills | JK Database</title>
+    <link rel="stylesheet" href="../assets/css/style.css" />
+  </head>
+  <body>
+    <div class="layout">
+      <aside class="sidebar"></aside>
+      <main class="content">
+        <div class="topbar">
+          <div>
+            <h1>Purchase Bills</h1>
+            <div class="sub">
+              Vendor bills with inventory stock-in and payable tracking
+            </div>
+          </div>
+          <button class="btn primary" data-click="open">
+            + New Purchase Bill
+          </button>
+        </div>
+        <div class="toolbar">
+          <input id="search" class="search" placeholder="Search bills..." />
+          <div id="count" class="note"></div>
+        </div>
+        <div id="list"></div>
+        <dialog id="dlg">
+          <form id="form" class="modal">
+            <h2>New Purchase Bill</h2>
+            <p class="hint">
+              Linked inventory items will be added to stock when saved.
+            </p>
+            <div class="formgrid">
+              <div class="field">
+                <label>Vendor</label
+                ><select name="vendorId" id="vendor"></select>
+              </div>
+              <div class="field">
+                <label>Vendor bill #</label><input name="vendorBillNo" />
+              </div>
+              <div class="field">
+                <label>Date</label><input name="date" id="date" type="date" />
+              </div>
+              <div class="field">
+                <label>Due date</label
+                ><input name="dueDate" id="dueDate" type="date" />
+              </div>
+              <div class="field full">
+                <label>Notes</label><input name="notes" />
+              </div>
+            </div>
+            <h3>Items</h3>
+            <div id="rows"></div>
+            <button type="button" class="btn" id="addRow">+ Add Item</button>
+            <div class="totals">
+              <div><span>Subtotal</span><b id="sub"></b></div>
+              <div><span>HST</span><b id="tax"></b></div>
+              <div class="grand">
+                <span>Total</span><span id="total"></span>
+              </div>
+            </div>
+            <div class="footer">
+              <button type="button" class="btn" data-click="close">
+                Cancel</button
+              ><button class="btn primary">Save Bill</button>
+            </div>
+          </form>
+        </dialog>
+      </main>
+    </div>
+    <script type="module" src="../assets/js/pages/purchases.js"></script>
+  </body>
+</html>
