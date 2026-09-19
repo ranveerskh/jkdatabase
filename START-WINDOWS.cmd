@@ -1,6 +1,6 @@
 @echo off
 cd /d "%~dp0"
-echo JK Database V6 - open http://localhost:8000 in your browser.
+echo JK Database V7 - open http://localhost:8000 in your browser.
 echo Keep this window open while using the app. Press Ctrl+C to stop.
 where py >nul 2>nul
 if %errorlevel%==0 (

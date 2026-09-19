@@ -22,7 +22,7 @@ export async function transaction(change, { recovery = false } = {}) {
     throw Error(
       "Saving needs a modern browser at HTTPS or localhost. Open with the included local server instructions.",
     );
-  return navigator.locks.request("jk-database-v6-write", async () => {
+  return navigator.locks.request("jk-database-v7-write", async () => {
     const raw = localStorage.getItem(DB_KEY);
     if (raw !== expected)
       throw Error(
@@ -30,7 +30,7 @@ export async function transaction(change, { recovery = false } = {}) {
       );
     const next = structuredClone(db);
     const result = await change(next);
-    next.version = 6;
+    next.version = 7;
     next._rev = uid("rev");
     const encoded = JSON.stringify(next);
     try {

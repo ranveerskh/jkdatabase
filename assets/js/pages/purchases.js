@@ -1,55 +1,22 @@
-import {
-  $,
-  db,
-  esc,
-  money,
-  table,
-  button,
-  option,
-  actions,
-  submit,
-  run,
-  today,
-  purchaseBalance,
-  purchaseStatus,
-  creditBalance,
-} from "../app.js";
-import { savePurchase, voidDocument } from "../services/business-service.js";
+import { $, db, esc, money, today, toast, purchaseBalance, purchaseStatus, vendorPaid, creditBalance } from "../app.js";
+import { savePurchaseDeal, savePayment, voidDocument, saveMaster } from "../services/business-service.js";
+import { printPurchase } from "../services/print-service.js";
 import { lineEditor } from "./line-editor.js";
-$("vendor").innerHTML =
-  option("", "Manual / no vendor") +
-  db.vendors.map((v) => option(v.id, v.name)).join("");
-$("date").value = $("dueDate").value = today();
-const lines = lineEditor(true);
-$("count").textContent = `${db.purchases.length} bills`;
-$("list").innerHTML = table(
-  [
-    "Bill",
-    "Vendor #",
-    "Date",
-    "Vendor",
-    "Total",
-    "Balance",
-    "Advance",
-    "Status",
-    "",
-  ],
-  db.purchases
-    .slice()
-    .reverse()
-    .map(
-      (i) =>
-        `<tr><td>${esc(i.number)}</td><td>${esc(i.vendorBillNo)}</td><td>${esc(i.date)}</td><td>${esc(i.vendorName)}</td><td>${money(i.total)}</td><td>${money(purchaseBalance(i))}</td><td>${money(creditBalance(i, "vendor"))}</td><td>${esc(purchaseStatus(i))}</td><td>${!i.voided ? button("Void", "void", i.id, "danger") : ""}</td></tr>`,
-    ),
-);
-actions($("list"), {
-  void: (id) => {
-    if (
-      confirm(
-        "Void this unpaid purchase and reverse stock-in? This is blocked if stock has been used.",
-      )
-    )
-      run(() => voidDocument("purchases", id));
-  },
-});
-submit($("form"), (o) => savePurchase(o, lines.values()));
+const form=$("form"),paymentForm=$("paymentForm"); let currentTotal=0,activeFilter="all";
+const addDays=(iso,days)=>{const d=new Date(iso+"T12:00:00");d.setDate(d.getDate()+Number(days||0));return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`};
+const lines=lineEditor(true,{onTotals:(t)=>{currentTotal=t.total;syncPayment();}});
+function populate(){ $("vendorList").innerHTML=db.vendors.map((v)=>`<option value="${esc(v.name)}" label="${esc([v.phone,v.email].filter(Boolean).join(' · '))}"></option>`).join(""); }
+function vendorByInput(){const name=$("vendorName").value.trim().toLowerCase(),c=db.vendors.filter((v)=>v.name.trim().toLowerCase()===name),phone=$("vendorPhone").value.replace(/\D/g,""),email=$("vendorEmail").value.trim().toLowerCase();return c.find((v)=>(email&&String(v.email||"").toLowerCase()===email)||(phone&&String(v.phone||"").replace(/\D/g,"")===phone))||(c.length===1?c[0]:null);}
+function syncVendor(){const v=vendorByInput();$("vendorId").value=v?.id||"";if(v){$("vendorPhone").value||=v.phone||"";$("vendorEmail").value||=v.email||"";$("vendorAddress").value||=v.address||"";$("vendorMessage").textContent="Existing vendor selected — saved details will be linked to this purchase.";}else $("vendorMessage").textContent="New vendor — save karde hi automatically add ho jayega.";}
+function syncPayment(){const preset=form.elements.paymentPreset?.value||"full",el=$("paymentAmount");if(preset==="full")el.value=currentTotal.toFixed(2);if(preset==="unpaid")el.value="0.00";el.readOnly=preset!=="partial";const paid=Number(el.value||0),bal=Math.round((currentTotal-paid)*100)/100;$("payTotal").textContent=money(currentTotal);$("payNow").textContent=money(paid);$("payBalance").textContent=bal>=0?money(bal):`${money(-bal)} advance`;}
+function open(){form.reset();$("vendorId").value="";$("date").value=today();$("paymentDate").value=today();$("dueDate").value=addDays(today(),db.settings.defaultDueDays||30);form.querySelector('input[name="paymentPreset"][value="full"]').checked=true;lines.set([{}]);lines.calculate();syncPayment();$("dlg").showModal();setTimeout(()=>$("vendorName").focus(),0);}
+populate();$("newPurchase").addEventListener("click",open);[$("vendorName"),$("vendorPhone"),$("vendorEmail")].forEach((e)=>e.addEventListener("change",syncVendor));form.querySelectorAll('input[name="paymentPreset"]').forEach((e)=>e.addEventListener("change",syncPayment));$("paymentAmount").addEventListener("input",syncPayment);
+form.addEventListener("submit",async(e)=>{e.preventDefault();const btn=e.submitter;btn.disabled=true;try{syncVendor();await savePurchaseDeal(Object.fromEntries(new FormData(form)),lines.values());toast("Purchase saved successfully.","ok");location.reload();}catch(err){toast(err.message);btn.disabled=false;}});
+function render(){const q=$("search").value.trim().toLowerCase();let list=db.purchases.slice().reverse().filter((x)=>`${x.number} ${x.vendorName} ${x.vendorBillNo||''} ${purchaseStatus(x)}`.toLowerCase().includes(q));list=list.filter((x)=>{const st=purchaseStatus(x).toLowerCase();if(activeFilter==="due")return purchaseBalance(x)>0;if(activeFilter==="paid")return st==="paid"||st==="credit";if(activeFilter==="unpaid")return st==="unpaid"||st==="overdue"||st==="partially paid";return true;});$("count").textContent=`${list.length} purchases`;$("list").innerHTML=list.length?list.map((x)=>{const st=purchaseStatus(x),due=purchaseBalance(x),adv=creditBalance(x,"vendor");return `<article class="record-card"><div class="record-main"><b>${esc(x.vendorName)}</b><small>${esc(x.number)}${x.vendorBillNo?` · Vendor # ${esc(x.vendorBillNo)}`:''} · ${esc(x.date)}</small></div><div class="record-stat"><small>Total</small><b>${money(x.total)}</b></div><div class="record-stat"><small>Paid</small><b>${money(vendorPaid(x.id))}</b></div><div class="record-stat optional-stat"><small>Due</small><b>${money(due)}</b></div><div class="record-stat optional-stat"><small>Status</small><b>${esc(st)}${adv?` · ${money(adv)} advance`:''}</b></div><div class="record-actions"><button class="btn small" data-action="print" data-id="${esc(x.id)}">View Bill</button>${due>0&&!x.voided?`<button class="btn small primary" data-action="pay" data-id="${esc(x.id)}">Pay Vendor</button>`:''}${!x.voided?`<button class="btn small danger" data-action="void" data-id="${esc(x.id)}">Void</button>`:''}</div></article>`}).join(""):'<div class="empty card">No matching purchases.</div>';}
+$("search").addEventListener("input",render);$("filters").addEventListener("click",(e)=>{const b=e.target.closest("[data-filter]");if(!b)return;activeFilter=b.dataset.filter;$("filters").querySelectorAll(".tab").forEach((x)=>x.classList.toggle("active",x===b));render();});
+$("list").addEventListener("click",async(e)=>{const b=e.target.closest("[data-action]");if(!b)return;const x=db.purchases.find((p)=>p.id===b.dataset.id);try{if(b.dataset.action==="print")printPurchase(x.id);if(b.dataset.action==="void"&&confirm("Void this unpaid purchase and reverse its stock-in? This will be blocked if linked payments exist or stock has already been used.")){await voidDocument("purchases",x.id);location.reload();}if(b.dataset.action==="pay"){paymentForm.reset();paymentForm.elements.purchaseId.value=x.id;paymentForm.elements.amount.value=purchaseBalance(x).toFixed(2);paymentForm.elements.date.value=today();$("paymentDoc").textContent=`${x.number} · ${x.vendorName} · Remaining ${money(purchaseBalance(x))}`;$("paymentDlg").showModal();}}catch(err){toast(err.message);}});
+paymentForm.addEventListener("submit",async(e)=>{e.preventDefault();const btn=e.submitter;btn.disabled=true;try{await savePayment("vendor",Object.fromEntries(new FormData(paymentForm)));toast("Vendor payment recorded.","ok");location.reload();}catch(err){toast(err.message);btn.disabled=false;}});$("paymentCancel").addEventListener("click",()=>$("paymentDlg").close());
+$("quickProduct").addEventListener("click",()=>{$("productForm").reset();$("productDlg").showModal();});$("productCancel").addEventListener("click",()=>$("productDlg").close());$("productForm").addEventListener("submit",async(e)=>{e.preventDefault();const btn=e.submitter;btn.disabled=true;try{await saveMaster("products",Object.fromEntries(new FormData($("productForm"))));lines.refreshProducts();$("productDlg").close();toast("Product added to Inventory.","ok");}catch(err){toast(err.message);btn.disabled=false;}});
+const params=new URLSearchParams(location.search);if(params.get("filter")){activeFilter=params.get("filter");const b=$("filters").querySelector(`[data-filter="${activeFilter}"]`);if(b)$("filters").querySelectorAll(".tab").forEach((x)=>x.classList.toggle("active",x===b));}
+render();
+if(params.get("new")==="1") open();

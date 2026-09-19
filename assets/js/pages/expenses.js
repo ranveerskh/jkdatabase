@@ -39,3 +39,4 @@ actions($("list"), {
   },
 });
 submit($("form"), saveExpense);
+if (new URLSearchParams(location.search).get("new") === "1") $("dlg").showModal();

@@ -64,3 +64,6 @@ $("list").innerHTML = table(
         `<tr><td>${esc(r.number)}${r.legacy ? " (legacy review)" : ""}</td><td>${esc(r.date)}</td><td>${esc(db.invoices.find((i) => i.id === r.invoiceId)?.number || "—")}</td><td>${esc(r.description || "—")}</td><td>${esc(r.qty)}</td><td>${money(r.amount)}</td><td>${r.legacy ? "Review" : money(r.tax)}</td><td>${r.restock === "yes" ? "Yes" : "No"}</td><td>${esc(r.reason)}</td></tr>`,
     ),
 );
+
+const presetInvoice = new URLSearchParams(location.search).get("invoice");
+if (presetInvoice && db.invoices.some((i)=>i.id===presetInvoice)) { $("invoice").value=presetInvoice; $("invoice").dispatchEvent(new Event("change")); }

@@ -11,6 +11,8 @@ export function blankDB() {
     version: DB_VERSION,
     _rev: "",
     settings: { ...DEFAULT_SETTINGS },
+    people: [],
+    businessProfiles: [],
     ...Object.fromEntries(COLLECTIONS.map((k) => [k, []])),
   };
 }
@@ -89,6 +91,16 @@ export function validateBackup(data) {
           ))
       )
         throw Error(`Invalid line items in ${key}.`);
+    }
+  }
+  if (data.people !== undefined) {
+    if (!Array.isArray(data.people)) throw Error("Invalid people collection.");
+    const seenPeople = new Set();
+    for (const r of data.people) {
+      if (!r || typeof r !== "object" || typeof r.id !== "string" || !r.id || seenPeople.has(r.id))
+        throw Error("Invalid or duplicate ID in people.");
+      if (typeof r.name !== "string" || !r.name.trim()) throw Error("Missing name in people.");
+      seenPeople.add(r.id);
     }
   }
   for (const key of ["customers", "vendors", "products"])
@@ -203,12 +215,14 @@ export function normalize(data) {
     ...blankDB(),
     ...structuredClone(data),
     settings: { ...DEFAULT_SETTINGS, ...data.settings },
-    version: 6,
+    version: 7,
   };
   d.settings.allowNegativeStock =
     d.settings.allowNegativeStock === true ||
     d.settings.allowNegativeStock === "true";
   for (const k of COLLECTIONS) d[k] ??= [];
+  d.people ??= [];
+  d.businessProfiles ??= [];
   if (Number(data.version || 3) < 6) {
     for (const k of COLLECTIONS) for (const r of d[k]) r.legacy = true;
     d.migrationNotice =
@@ -242,6 +256,35 @@ export function normalize(data) {
     }
     for (const r of d.returns) r.legacy = true;
   }
+  if (Number(data.version || 3) < 7) {
+    const norm = (v) => String(v || "").trim().toLowerCase();
+    const digits = (v) => String(v || "").replace(/\D/g, "");
+    const findPerson = (r) => {
+      const em = norm(r.email), ph = digits(r.phone);
+      return d.people.find((p) => (em && norm(p.email) === em) || (ph && digits(p.phone) === ph));
+    };
+    const makePerson = (r, role) => {
+      let p = findPerson(r);
+      if (!p) {
+        p = {
+          id: uid("person"), name: r.name || "Unnamed", contact: r.contact || "",
+          phone: r.phone || "", email: r.email || "", address: r.address || "", notes: r.notes || "",
+          roles: [], createdAt: new Date().toISOString(),
+        };
+        d.people.push(p);
+      }
+      p.roles ||= [];
+      if (!p.roles.includes(role)) p.roles.push(role);
+      return p;
+    };
+    for (const c of d.customers) c.personId = c.personId || makePerson(c, "customer").id;
+    for (const v of d.vendors) v.personId = v.personId || makePerson(v, "vendor").id;
+    d.migrationNotice = d.migrationNotice || "V6 data was upgraded to V7. Customers and vendors are now linked through unified People profiles; your original documents and stock history were preserved.";
+  }
+  for (const p of d.people) {
+    p.roles = Array.isArray(p.roles) ? [...new Set(p.roles.filter((r) => r === "customer" || r === "vendor"))] : [];
+  }
+  d.version = 7;
   return d;
 }
 export function loadDB() {

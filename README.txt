@@ -1,123 +1,90 @@
-JK DATABASE — V6.0.0 LOCAL EDITION
-================================
-A repaired, modular local business manager. Firebase is intentionally disabled.
-No build step, application npm dependencies, or online JavaScript libraries.
+JK Database V7 Local
+====================
 
-OPEN THE APP
-------------
-Option 1: Upload the extracted folder to a static HTTPS host (for example,
-your existing Netlify site). index.html must be at the site root.
-
-Option 2: With Python 3 installed, open a terminal inside this folder and run:
-    python -m http.server 8000 --bind 127.0.0.1
-Open http://localhost:8000 in a current Chrome, Edge, Firefox or Safari.
-Windows users with Python installed can use START-WINDOWS.cmd.
-
-Do not double-click index.html. ES modules and safe writes need an HTTP server.
-Safe writes use Web Locks; HTTPS and localhost are supported. A browser that
-cannot provide Web Locks can display data but cannot save changes.
-
-UPGRADE FROM V5
----------------
-1. Download a full JSON backup from the OLD app before replacing files.
-2. Keep the same browser, profile and site address where possible.
-3. V6 reads a V5/V4/V3 database if there is no active V6 database yet.
-4. If using a new address/device, restore your old JSON backup in Settings.
-5. Check physical inventory and outstanding balances against your real records.
-6. Export a new V6 backup after confirming the migration.
-
-The original older browser keys remain untouched. V6 saves under jkDatabaseV6.
-Reset writes an EMPTY V6 database instead of deleting its key, so older data
-cannot unexpectedly reappear. Reset is not a privacy erasure: older-version
-keys and the previous-save recovery copy remain in browser storage. A fresh
-site/profile starts empty unless you restore a backup.
-
-Legacy amounts are preserved, not silently rewritten. Older voids, unlinked
-payments, old returns and missing cost history may require reconciliation.
-Imported documents are labelled by a migration notice. Imported purchase
-voiding is blocked because stock movement history may be incomplete. Imported
-invoices can receive V6 credit notes only if they have no unreconciled legacy
-returns. Older returns remain visible but are not silently applied again to
-invoice balances or tax. Missing historical costs make profit unavailable.
-
-DAILY WORKFLOW
---------------
-- Set your business profile and HST rate first.
-- Add customers/vendors and inventory with opening quantities and standard cost.
-- Purchase Bills record stock-in and the amount owed to vendors.
-- Save invoice drafts freely. Finalise a draft to post the sale and reduce stock.
-- Finalised invoices are locked. Correct an unpaid invoice by voiding it, then
-  duplicating it as a draft. For paid invoices use Returns & Credit Notes.
-- Duplicate creates a DRAFT, clears credits and does not change stock.
-- Void restores invoice stock (or reverses purchase stock) exactly once.
-  Payments, returns, refunds and credit allocations protect linked documents.
-- Record real customer/vendor payments. Overpayments appear as available
-  customer credit or vendor advance on the corresponding Payments page.
-- Allocate credit to another outstanding document for the SAME named account.
-  Manual/walk-in accounts cannot transfer credits to unrelated people.
-- A return selects an ORIGINAL INVOICE LINE. Quantity, discount and HST are
-  prorated from that line. It creates a credit note, not an automatic cash refund.
-- After money is actually refunded, record the refund in Payments. Credits
-  cannot be refunded or allocated twice. Refund/transfer actions are dated today.
-- Damaged returns can be credited without restocking; their stock cost remains.
-- Inventory quantity edits and CSV opening quantities create ledger movements.
-- Do not enter the same cost both as a purchase bill and as an expense.
-- Product standard cost is maintained manually. Purchasing does not silently
-  replace that cost; finalised sales snapshot the current standard cost.
-
-REPORTS
--------
-Net revenue excludes HST and return credits. HST subtracts the tax on V6 credit
-notes. Inventory purchases do not immediately become an operating expense;
-standard cost of sold goods is used instead. Non-inventory purchase lines and
-net operating expenses are deducted. Custom/service invoice lines carry zero
-inventory cost; enter their other costs as expenses.
-
-Operating Estimate is a STANDARD-COST bookkeeping estimate, not FIFO,
-weighted-average accounting, a formal financial statement, or a tax return.
-Tax credit eligibility is not assessed. Voided documents are excluded from
-live reports; past periods are not locked. Aging and inventory valuation are
-CURRENT snapshots even when the sales report uses an earlier date range.
-Statements include opening and running balances, credit notes, allocations,
-payments and refunds. Negative net balances mean credit/advance available.
-
-BACKUPS AND DATA SAFETY
-----------------------
-- Settings > Download Full Backup saves all records as JSON.
-- Download Previous Save exports the previous successful V6 database snapshot.
-- Restore/reset starts a backup download before changing the active data.
-- Keep independent backups; clearing browser data removes local records.
-- Restore validates structure, IDs, money, dates and new document references.
-- A failed save does not publish partially changed invoice/stock state.
-- If another tab saved after this page opened, reload before retrying your form.
-- No cloud sync, authenticated users, roles, receipt attachments or immutable
-  audit log are claimed. Browser storage is editable by the device owner.
-- A corrupted database is preserved and blocked from accidental overwrite.
-  Settings offers raw export and restore to recover it.
-
-CSV IMPORT
+What V7 is
 ----------
-Contacts: name,email,phone,address,contact,notes
-Products: name,sku,qty,cost,price,low,unit
-Name is required. IDs are generated; imported IDs are never trusted.
-Duplicate email/SKU rows are skipped. Invalid rows reject the entire import.
-CSV exports neutralise spreadsheet formula prefixes for safer opening.
+JK Database V7 is an offline/local browser business app built around one rule:
+enter the deal once, then let the app update the related customer/vendor, document,
+payment, balance, stock ledger, audit history and dashboard automatically.
 
-PROJECT STRUCTURE
------------------
-index.html / pages/          Page markup only
-assets/css/                 Screen and invoice print styling
-assets/js/pages/            Separate page controllers and shared form helpers
-assets/js/services/         Transactions, calculations, ledger, reports, printing
-assets/js/repositories/     Atomic commit and stale-tab conflict checks
-assets/js/storage/          Validation, migration and database loading
-assets/js/core/             Constants and shared utilities
-assets/js/firebase.js       Disabled cloud placeholder
-
-TESTS
+Start
 -----
-With Node 20+ installed, run: node --test tests/core.test.js
-Optional DOM tests: install jsdom for development, then run:
-    node --experimental-vm-modules tests/dom-smoke.cjs
-Neither Node nor jsdom is needed to use the hosted application.
-See TEST-REPORT.md for the checks performed and remaining visual QA limits.
+Windows: run START-WINDOWS.cmd, or serve this folder with any simple local web server
+and open index.html through that server.
+
+Daily menu
+----------
+Home
+Sales
+Purchases
+People
+Products / Inventory
+Expenses
+Reports
+Settings
+
+Daily flow
+----------
+Sale: Sales > New Sale > customer > items > payment > Save Sale.
+Quote: Sales > New Quote > save; stock/payment are untouched until Convert to Sale.
+Purchase: Purchases > New Purchase > vendor > items > payment > Save Purchase.
+New customers/vendors are automatically created and linked to one unified People profile.
+
+Payments
+--------
+Full, Partial and Unpaid are available inside the Sale/Purchase form. Full defaults to
+the deal total. Later payments default to the remaining balance. Overpayments become
+customer credit/vendor advance and can be allocated or refunded through the supported
+credit tools.
+
+Inventory
+---------
+Posted sales reduce stock, posted purchases increase stock, returns can restock, voids
+reverse eligible stock movements, and manual adjustments are recorded in the stock
+ledger. Negative stock is blocked by default unless enabled in Settings.
+
+Invoices
+--------
+V7 uses a professional print layout with business logo/details, customer information,
+items, totals, paid/credit/balance information and terms. Final documents keep a
+business-profile snapshot/reference so later Settings changes do not rewrite historical
+invoice identity.
+
+V6 upgrade
+----------
+V7 stores active data under jkDatabaseV7. If no V7 database exists, a valid V6 database
+can be migrated once into V7. Customers and vendors are linked into unified People
+profiles. The V6 browser key is left untouched as a fallback source; once a V7 marker
+exists, older data is not silently resurrected.
+
+Backups and safety
+------------------
+Settings > Data tools can download and restore backups. Restore validates data before
+commit. Transactions are atomic, duplicate/stale saves are guarded, invalid CSV imports
+roll back fully, formula-style CSV values are rejected, posted financial history is
+protected, and linked products/documents cannot be casually deleted.
+
+Reports
+-------
+Reports include sales, purchases, expenses, operating estimate, HST summary,
+receivables/payables, credits/advances, inventory valuation, sales by product/customer,
+and expenses by category. Operating Estimate is a standard-cost business estimate, not
+a formal tax return or accounting statement.
+
+iPad
+----
+The V7 UI includes a drawer menu, touch-size controls, responsive deal forms, sticky
+actions, card-based records and print/PDF-friendly document preview for iPad Safari.
+
+Advanced tools
+--------------
+Stock Ledger, Customer/Vendor Statements, Audit Log, CSV tools and recovery functions
+are kept under Settings/advanced workflows instead of crowding the main daily menu.
+
+Future cloud path
+-----------------
+The local app is structured so the business flow can later be backed by Firebase Auth,
+Firestore, Storage, multi-user roles, multi-device sync, cloud backup and subscriptions
+without redesigning the daily Sale/Purchase forms.
+
+Version: 7.0.0-local

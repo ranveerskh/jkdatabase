@@ -163,46 +163,10 @@ function boot() {
   const root = new URL("../../", import.meta.url),
     page = location.pathname.split("/").pop() || "index.html";
   const groups = [
-    ["OVERVIEW", [["Dashboard", "index.html"]]],
-    [
-      "SALES",
-      [
-        ["Customers", "customers.html"],
-        ["Invoices", "invoices.html"],
-        ["Quotes", "quotes.html"],
-        ["Returns & Credits", "returns.html"],
-        ["Payments", "payments.html"],
-        ["Customer Statements", "customer-statements.html"],
-      ],
-    ],
-    [
-      "PURCHASING",
-      [
-        ["Vendors", "vendors.html"],
-        ["Purchase Bills", "purchases.html"],
-        ["Vendor Payments", "vendor-payments.html"],
-        ["Vendor Statements", "vendor-statements.html"],
-      ],
-    ],
-    [
-      "STOCK & FINANCE",
-      [
-        ["Inventory", "inventory.html"],
-        ["Stock Ledger", "stock-ledger.html"],
-        ["Expenses", "expenses.html"],
-        ["Reports & HST", "reports.html"],
-      ],
-    ],
-    [
-      "SYSTEM",
-      [
-        ["Settings & Backup", "settings.html"],
-        ["Audit Log", "audit.html"],
-      ],
-    ],
+    ["MAIN", [["Home", "index.html"], ["Sales", "sales.html"], ["Purchases", "purchases.html"], ["People", "people.html"], ["Products / Inventory", "inventory.html"], ["Expenses", "expenses.html"], ["Reports", "reports.html"], ["Settings", "settings.html"]]],
   ];
   document.querySelector(".sidebar").innerHTML =
-    '<div class="brand"><b>JK</b>JK Database<small>Version 6 · Local Edition</small></div><nav class="nav">' +
+    '<div class="brand"><b>JK</b>JK Database<small>Version 7 · Local Edition</small></div><nav class="nav">' +
     groups
       .map(
         ([label, links]) =>
@@ -216,6 +180,19 @@ function boot() {
       )
       .join("") +
     "</nav>";
+  const menuButton = document.createElement("button");
+  menuButton.type = "button";
+  menuButton.className = "mobile-menu-btn";
+  menuButton.setAttribute("aria-label", "Open menu");
+  menuButton.innerHTML = "☰ <span>Menu</span>";
+  const shade = document.createElement("div");
+  shade.className = "menu-shade";
+  document.body.append(menuButton, shade);
+  const sidebar = document.querySelector(".sidebar");
+  const closeMenu = () => document.body.classList.remove("menu-open");
+  menuButton.addEventListener("click", () => document.body.classList.toggle("menu-open"));
+  shade.addEventListener("click", closeMenu);
+  sidebar.querySelectorAll("a").forEach((a) => a.addEventListener("click", closeMenu));
   const banner = (msg) => {
     const e = document.createElement("div");
     e.className = "notice";

@@ -5,7 +5,7 @@ let failWrites = false;
 globalThis.localStorage = {
   getItem: (k) => memory.get(k) ?? null,
   setItem: (k, v) => {
-    if (failWrites && k === "jkDatabaseV6") throw Error("Quota");
+    if (failWrites && k === "jkDatabaseV7") throw Error("Quota");
     memory.set(k, String(v));
   },
   removeItem: (k) => memory.delete(k),
@@ -333,13 +333,13 @@ test("save failure rolls back all state", async () => {
   failWrites = false;
 });
 test("stale tab save rejected without overwrite", async () => {
-  const old = memory.get("jkDatabaseV6");
-  memory.set("jkDatabaseV6", "changed");
+  const old = memory.get("jkDatabaseV7");
+  memory.set("jkDatabaseV7", "changed");
   await assert.rejects(() => sale(), /another tab/);
-  assert.equal(memory.get("jkDatabaseV6"), "changed");
-  memory.set("jkDatabaseV6", old);
+  assert.equal(memory.get("jkDatabaseV7"), "changed");
+  memory.set("jkDatabaseV7", old);
 });
-test("reset keeps empty V6 marker, preventing legacy resurrection", async () => {
+test("reset keeps empty V7 marker, preventing legacy resurrection", async () => {
   memory.set(
     "jkDatabaseV5",
     JSON.stringify({
@@ -350,7 +350,7 @@ test("reset keeps empty V6 marker, preventing legacy resurrection", async () => 
   );
   await repo.resetDB();
   assert.equal(storage.loadDB().customers.length, 0);
-  assert.ok(memory.has("jkDatabaseV6"));
+  assert.ok(memory.has("jkDatabaseV7"));
   memory.delete("jkDatabaseV5");
 });
 test("malformed backup rejected without changing active data", async () => {
@@ -398,4 +398,80 @@ test("legacy stock preserved with reconciliation marker and no fabricated profit
   assert.equal(d.products[0].qty, 5);
   assert.equal(d.stockLedger[0].type, "Migration reconciliation");
   assert.equal(R.report(date, date, d).estimate, null);
+});
+
+
+test("V7 one-save sale auto-creates person, customer, payment and stock movement", async () => {
+  await repo.replaceDB(storage.blankDB());
+  const prod = await B.saveMaster("products", { name: "V7 Widget", sku: "V7W", qty: 5, cost: 2, price: 10, low: 1 });
+  const result = await B.saveSaleDeal({
+    dealType: "sale", customerName: "Fresh Customer", phone: "519-555-1111", email: "fresh@example.test",
+    date, dueDate: date, discount: 0, paymentPreset: "full", paymentMethod: "E-transfer", paymentDate: date,
+  }, [{ productId: prod, qty: 2, price: 10, description: "V7 Widget" }]);
+  assert.equal(result.kind, "invoice");
+  assert.equal(repo.db.people.length, 1);
+  assert.deepEqual(repo.db.people[0].roles, ["customer"]);
+  assert.equal(repo.db.customers[0].personId, repo.db.people[0].id);
+  assert.equal(repo.db.invoices[0].state, "posted");
+  assert.equal(repo.db.payments[0].amount, 22.6);
+  assert.equal(repo.db.products[0].qty, 3);
+  assert.equal(F.invoiceBalance(repo.db.invoices[0]), 0);
+});
+
+test("V7 quote saves items without stock or payment and converts once to posted sale", async () => {
+  await repo.replaceDB(storage.blankDB());
+  const prod = await B.saveMaster("products", { name: "Quoted", sku: "Q1", qty: 3, cost: 1, price: 10, low: 1 });
+  const q = await B.saveSaleDeal({ dealType: "quote", customerName: "Quote Person", date, validUntil: date, discount: 0 }, [{ productId: prod, qty: 2, price: 10, description: "Quoted" }]);
+  assert.equal(q.kind, "quote");
+  assert.equal(repo.db.products[0].qty, 3);
+  assert.equal(repo.db.payments.length, 0);
+  const invoiceId = await B.convertQuoteToSale(q.id);
+  assert.equal(repo.db.products[0].qty, 1);
+  assert.equal(repo.db.invoices.find((x)=>x.id===invoiceId).state, "posted");
+  assert.equal(F.invoiceBalance(repo.db.invoices[0]), 22.6);
+  await assert.rejects(() => B.convertQuoteToSale(q.id), /already/);
+});
+
+test("V7 purchase auto-creates vendor and records partial payment atomically", async () => {
+  await repo.replaceDB(storage.blankDB());
+  const prod = await B.saveMaster("products", { name: "Bought", sku: "B1", qty: 1, cost: 5, price: 10, low: 1 });
+  const id = await B.savePurchaseDeal({ vendorName: "New Vendor", phone: "2265553333", date, dueDate: date, paymentPreset: "partial", paymentAmount: 5, paymentDate: date, paymentMethod: "Cash" }, [{ productId: prod, qty: 2, price: 5, description: "Bought" }]);
+  assert.ok(id);
+  assert.equal(repo.db.people[0].roles[0], "vendor");
+  assert.equal(repo.db.products[0].qty, 3);
+  assert.equal(repo.db.vendorPayments[0].amount, 5);
+  assert.equal(F.purchaseBalance(repo.db.purchases[0]), 6.3);
+});
+
+test("V6 backup migrates to V7 people links without changing document totals", () => {
+  const old = storage.blankDB();
+  old.version = 6;
+  old.people = undefined;
+  old.customers = [{ id:"c-old", name:"Same Co", phone:"5195550000", email:"same@example.test" }];
+  old.vendors = [{ id:"v-old", name:"Same Co", phone:"5195550000", email:"same@example.test" }];
+  const d = storage.normalize(old);
+  assert.equal(d.version, 7);
+  assert.equal(d.people.length, 1);
+  assert.deepEqual(new Set(d.people[0].roles), new Set(["customer","vendor"]));
+  assert.equal(d.customers[0].personId, d.vendors[0].personId);
+});
+
+test("V7 same phone/email reuses one People profile across customer and vendor roles", async () => {
+  await repo.replaceDB(storage.blankDB());
+  const prod = await B.saveMaster("products", { name: "Shared", sku: "S1", qty: 5, cost: 2, price: 5, low: 1 });
+  await B.saveSaleDeal({ dealType:"sale", customerName:"Dual Co", email:"dual@example.test", date, dueDate:date, paymentPreset:"unpaid" }, [{productId:prod,qty:1,price:5,description:"Shared"}]);
+  await B.savePurchaseDeal({ vendorName:"Dual Co", email:"dual@example.test", date, dueDate:date, paymentPreset:"unpaid" }, [{productId:prod,qty:1,price:2,description:"Shared"}]);
+  assert.equal(repo.db.people.length, 1);
+  assert.deepEqual(new Set(repo.db.people[0].roles), new Set(["customer","vendor"]));
+  assert.equal(repo.db.customers[0].personId, repo.db.vendors[0].personId);
+});
+
+test("V7 unsafe CSV formula prefixes reject the entire import", async () => {
+  const before = repo.db.products.length;
+  await assert.rejects(() => B.importMasters("products", [
+    ["name","sku","qty","cost","price"],
+    ["Safe","SAFE2","1","1","2"],
+    ["=HYPERLINK(bad)","BAD2","1","1","2"],
+  ]), /unsafe spreadsheet formula prefix/);
+  assert.equal(repo.db.products.length, before);
 });

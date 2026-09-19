@@ -32,7 +32,7 @@ async function open(file, data) {
   };
   w.URL.createObjectURL = () => "blob:test";
   w.URL.revokeObjectURL = () => {};
-  if (data) w.localStorage.setItem("jkDatabaseV6", data);
+  if (data) w.localStorage.setItem("jkDatabaseV7", data);
   const context = dom.getInternalVMContext(),
     cache = new Map();
   async function get(url) {
@@ -79,7 +79,7 @@ async function open(file, data) {
     errors,
     dom,
     cache,
-    data: () => w.localStorage.getItem("jkDatabaseV6"),
+    data: () => w.localStorage.getItem("jkDatabaseV7"),
   };
 }
 function fill(w, values) {

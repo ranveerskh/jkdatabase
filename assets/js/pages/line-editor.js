@@ -1,6 +1,6 @@
 import { $, db, esc, option, money } from "../app.js";
 import { totals } from "../services/business-service.js";
-export function lineEditor(purchase = false) {
+export function lineEditor(purchase = false, { onTotals } = {}) {
   const rows = $("rows"),
     form = $("form");
   function values() {
@@ -22,6 +22,7 @@ export function lineEditor(purchase = false) {
       if ($("disc")) $("disc").textContent = money(t.discount);
       $("tax").textContent = money(t.tax);
       $("total").textContent = money(t.total);
+      onTotals?.(t);
     } catch (e) {
       $("total").textContent = "Check line items / discount";
     }
@@ -55,8 +56,16 @@ export function lineEditor(purchase = false) {
     rows.replaceChildren();
     items.forEach(add);
   }
+  function refreshProducts() {
+    rows.querySelectorAll(".prod").forEach((select) => {
+      const value = select.value;
+      select.innerHTML = option("", purchase ? "Custom expense item" : "Custom item") +
+        db.products.map((p) => option(p.id, p.name)).join("");
+      select.value = value;
+    });
+  }
   $("addRow").addEventListener("click", () => add());
   form.elements.namedItem("discount")?.addEventListener("input", calculate);
   set();
-  return { values, set, calculate };
+  return { values, set, calculate, refreshProducts, add };
 }

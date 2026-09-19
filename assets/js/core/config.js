@@ -1,8 +1,9 @@
 export const APP_NAME = "JK Database";
-export const DB_KEY = "jkDatabaseV6",
-  DB_VERSION = 6,
-  RECOVERY_KEY = "jkDatabaseV6Recovery";
+export const DB_KEY = "jkDatabaseV7",
+  DB_VERSION = 7,
+  RECOVERY_KEY = "jkDatabaseV7Recovery";
 export const LEGACY_KEYS = [
+  "jkDatabaseV6",
   "jkDatabaseV5",
   "jkDatabaseV4",
   "jkDatabaseV3",
@@ -28,6 +29,7 @@ export const COLLECTIONS = [
 export const DEFAULT_SETTINGS = {
   businessName: "JK Database",
   legalName: "",
+  logoDataUrl: "",
   hstNo: "",
   hstRate: 13,
   currency: "CAD",
@@ -38,10 +40,16 @@ export const DEFAULT_SETTINGS = {
   nextInvoice: 1,
   quotePrefix: "QT",
   nextQuote: 1,
-  returnPrefix: "RT",
+  returnPrefix: "CN",
   nextReturn: 1,
   purchasePrefix: "PB",
   nextPurchase: 1,
   lowStockDefault: 5,
   allowNegativeStock: false,
+  defaultDueDays: 30,
+  defaultQuoteDays: 30,
+  accentColor: "#155eef",
+  paymentInstructions: "",
+  invoiceTerms: "",
+  thankYouMessage: "Thank you for your business.",
 };

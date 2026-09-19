@@ -8,6 +8,10 @@ import {
   arAging,
   apAging,
   toast,
+  posted,
+  invoiceBalance,
+  purchaseBalance,
+  creditBalance,
 } from "../app.js";
 import { localDate } from "../core/utils.js";
 import { report } from "../services/report-service.js";
@@ -25,11 +29,16 @@ $("to").value = today();
 function render() {
   try {
     const r = report($("from").value, $("to").value);
+    const invoices=db.invoices.filter(posted), purchases=db.purchases.filter(posted);
     $("cards").innerHTML = [
-      ["Net Revenue", r.netSales],
-      ["Standard-cost COGS", r.cogs],
-      ["Net Expenses", r.netExpenses + r.customPurchases],
+      ["Sales", r.netSales],
+      ["Purchases", r.purchases],
+      ["Expenses", r.netExpenses + r.customPurchases],
       ["Operating Estimate", r.estimate],
+      ["Amount to receive", sum(invoices, invoiceBalance)],
+      ["Amount to pay", sum(purchases, purchaseBalance)],
+      ["Customer credits", sum(invoices, (i)=>creditBalance(i))],
+      ["Vendor advances", sum(purchases, (i)=>creditBalance(i,"vendor"))],
     ]
       .map(
         ([k, v]) =>

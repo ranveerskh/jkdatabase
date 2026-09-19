@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#0b1220" />
+  <title>Sales | JK Database</title>
+  <link rel="stylesheet" href="../assets/css/style.css" />
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar"></aside>
+  <main class="content">
+    <div class="topbar">
+      <div><h1>Sales</h1><div class="sub">Sales, quotes, customer balances and payments in one place</div></div>
+      <div class="actions"><button class="btn primary" id="newSale">+ New Sale</button><button class="btn" id="newQuote">+ New Quote</button></div>
+    </div>
+    <div class="toolbar"><input class="search" id="search" placeholder="Search customer, invoice or quote..." /><div class="note" id="count"></div></div>
+    <div class="filterbar" id="filters">
+      <button class="tab active" data-filter="all">All</button><button class="tab" data-filter="sale">Sales</button><button class="tab" data-filter="quote">Quotes</button><button class="tab" data-filter="due">Payment Due</button><button class="tab" data-filter="paid">Paid</button><button class="tab" data-filter="unpaid">Unpaid</button>
+    </div>
+    <div id="list" class="record-grid"></div>
+
+    <dialog id="dlg" class="deal-dialog">
+      <form id="form" class="deal-form">
+        <div class="deal-header"><h2 id="modalTitle">New Sale</h2><p class="hint" id="dealHint">Enter the deal once. Invoice, stock, payment and customer balance update together.</p></div>
+        <div class="deal-body">
+          <section class="form-section">
+            <h3>1. Customer</h3>
+            <div class="formgrid">
+              <input type="hidden" name="customerId" id="customerId" />
+              <div class="field"><label>Customer / business name</label><input name="customerName" id="customerName" list="customerList" autocomplete="off" required /><datalist id="customerList"></datalist></div>
+              <div class="field"><label>Phone</label><input name="phone" id="customerPhone" inputmode="tel" /></div>
+              <div class="field"><label>Email</label><input name="email" id="customerEmail" type="email" /></div>
+              <div class="field"><label>Billing address</label><input name="address" id="customerAddress" /></div>
+            </div>
+            <p class="inline-note" id="customerMessage">New customer — save karde hi automatically add ho jayega.</p>
+          </section>
+
+          <section class="form-section">
+            <h3>2. Deal type</h3>
+            <div class="choice-row">
+              <label class="choice"><input type="radio" name="dealType" value="sale" checked /> Sale &amp; Invoice</label>
+              <label class="choice"><input type="radio" name="dealType" value="quote" /> Quote Only</label>
+            </div>
+          </section>
+
+          <section class="form-section">
+            <h3>3. Date details</h3>
+            <div class="formgrid">
+              <div class="field"><label id="dateLabel">Sale date</label><input name="date" id="date" type="date" required /></div>
+              <div class="field" id="dueWrap"><label>Payment due date</label><input name="dueDate" id="dueDate" type="date" required /></div>
+              <div class="field" id="validWrap" hidden><label>Valid until</label><input name="validUntil" id="validUntil" type="date" /></div>
+              <div class="field full"><label>Notes</label><input name="notes" id="notes" /></div>
+            </div>
+          </section>
+
+          <section class="form-section">
+            <h3>4. Items</h3>
+            <p class="section-help">Select an inventory product or use a custom line. Duplicate product lines are stock-checked together.</p>
+            <div class="line-labels"><span>Product</span><span>Qty</span><span>Price</span><span>Description</span><span></span></div>
+            <div id="rows"></div>
+            <div class="actions"><button type="button" class="btn" id="addRow">+ Add Item</button><button type="button" class="btn" id="quickProduct">+ Add Product</button></div>
+            <div class="field" style="max-width:220px;margin:14px 0 0 auto"><label>Discount</label><input name="discount" type="number" step=".01" min="0" value="0" /></div>
+            <div class="totals"><div><span>Subtotal</span><b id="sub">$0.00</b></div><div><span>Discount</span><b id="disc">$0.00</b></div><div><span>HST</span><b id="tax">$0.00</b></div><div class="grand"><span>Grand total</span><span id="total">$0.00</span></div></div>
+          </section>
+
+          <section class="form-section" id="paymentSection">
+            <h3>5. Payment</h3>
+            <p class="section-help">Full is selected by default. Change only when the customer actually pays a different amount.</p>
+            <div class="choice-row">
+              <label class="choice"><input type="radio" name="paymentPreset" value="full" checked /> Full</label>
+              <label class="choice"><input type="radio" name="paymentPreset" value="partial" /> Partial</label>
+              <label class="choice"><input type="radio" name="paymentPreset" value="unpaid" /> Unpaid</label>
+            </div>
+            <div class="formgrid" style="margin-top:12px">
+              <div class="field"><label>Actual amount received</label><input name="paymentAmount" id="paymentAmount" type="number" min="0" step=".01" /></div>
+              <div class="field"><label>Payment method</label><select name="paymentMethod"><option>Cash</option><option>Debit</option><option>Credit Card</option><option>E-transfer</option><option>Cheque</option><option>Bank Transfer</option><option>Other</option></select></div>
+              <div class="field"><label>Payment date</label><input name="paymentDate" id="paymentDate" type="date" /></div>
+              <div class="field"><label>Reference number</label><input name="paymentReference" /></div>
+            </div>
+            <div class="payment-summary"><div>Total<b id="payTotal">$0.00</b></div><div>Payment<b id="payNow">$0.00</b></div><div>Balance / credit<b id="payBalance">$0.00</b></div></div>
+          </section>
+        </div>
+        <div class="deal-footer"><button type="button" class="btn" data-click="close">Cancel</button><button type="submit" class="btn" value="save">Save Sale</button><button type="submit" class="btn primary" value="preview">Save &amp; Preview Invoice</button></div>
+      </form>
+    </dialog>
+
+    <dialog id="paymentDlg">
+      <form id="paymentForm" class="modal">
+        <h2>Receive Payment</h2><p class="hint" id="paymentDoc"></p>
+        <input type="hidden" name="invoiceId" />
+        <div class="formgrid"><div class="field"><label>Amount</label><input name="amount" type="number" min=".01" step=".01" required /></div><div class="field"><label>Date</label><input name="date" type="date" required /></div><div class="field"><label>Method</label><select name="method"><option>Cash</option><option>Debit</option><option>Credit Card</option><option>E-transfer</option><option>Cheque</option><option>Bank Transfer</option><option>Other</option></select></div><div class="field"><label>Reference</label><input name="reference" /></div></div>
+        <div class="footer"><button type="button" class="btn" id="paymentCancel">Cancel</button><button class="btn primary">Record Payment</button></div>
+      </form>
+    </dialog>
+
+    <dialog id="productDlg">
+      <form id="productForm" class="modal">
+        <h2>Quick Add Product</h2><p class="hint">Product saves to Inventory and becomes available in this deal immediately.</p>
+        <div class="formgrid"><div class="field"><label>Product name</label><input name="name" required /></div><div class="field"><label>SKU</label><input name="sku" /></div><div class="field"><label>Opening quantity</label><input name="qty" type="number" step=".01" value="0" /></div><div class="field"><label>Unit</label><input name="unit" /></div><div class="field"><label>Cost</label><input name="cost" type="number" step=".01" value="0" /></div><div class="field"><label>Selling price</label><input name="price" type="number" step=".01" value="0" /></div><div class="field"><label>Low-stock level</label><input name="low" type="number" step=".01" value="0" /></div></div>
+        <div class="footer"><button type="button" class="btn" id="productCancel">Cancel</button><button class="btn primary">Save Product</button></div>
+      </form>
+    </dialog>
+  </main>
+</div>
+<script type="module" src="../assets/js/pages/sales.js"></script>
+</body>
+</html>

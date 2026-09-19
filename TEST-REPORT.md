@@ -1,41 +1,47 @@
-# JK Database V6.0.0 — verification
+# JK Database V7.0.0 Local — verification report
 
-## Passed
+## Automated business-logic suite
 
-- 27 Node regression tests covering real business-service transactions: combined
-  stock checks; drafts/finalisation/duplicates; invoice and purchase voids; linked
-  deletion protection; returned quantities; prorated discount/HST and rounding;
-  customer credits and vendor advances; transfer/refund limits; stock editing;
-  atomic CSV imports; unique numbers; quotes; statements; report costs; save
-  failures; stale-tab protection; resets; backup validation and legacy migration.
-- All 17 page modules loaded with an empty database in jsdom.
-- All 17 page modules loaded with populated sample data in jsdom.
-- Ten form workflows submitted through DOM events: customer, vendor, inventory,
-  invoice, customer payment, return, purchase, vendor payment, expense and quote.
-- Customer/vendor statements generated after account selection.
-- Navigation targets, JavaScript imports and CSS file paths resolved.
-- No inline JavaScript or inline event handlers remain in the HTML pages.
-- JavaScript syntax checks completed for application modules.
+`npm test` passes **33/33** tests.
 
-## Limits
+Coverage includes:
+- posted sale tax, stock ledger and cost snapshots
+- combined stock validation and atomic rollback
+- drafts/finalisation/duplication/void protection
+- linked-payment safeguards
+- purchase stock reversal and duplicate vendor bill checks
+- returns, proportional discount/HST credits and refunds
+- customer overpayments/credits and vendor advances
+- manual stock adjustments and deletion protection
+- atomic CSV import, unique IDs and stock ledger creation
+- invoice numbering safety and quote conversion
+- statement/report calculations and penny allocation
+- stale-tab write rejection
+- backup validation/roundtrip and legacy reconciliation
+- V7 one-save Sale flow: auto People/customer/payment/stock
+- V7 Quote flow: no stock/payment until conversion
+- V7 one-save Purchase flow with partial payment
+- V6 to V7 People migration without changing document totals
+- same identity reused across customer/vendor roles
+- unsafe CSV formula-prefix rejection with full import rollback
 
-jsdom is a DOM execution environment, not a graphical browser. A native browser
-could not be started in the build environment: the Playwright download failed
-and an alternative Chromium binary failed to launch. Visual layout, native
-print dialogs, real download prompts and Safari/iPhone behaviour have therefore
-not been visually verified. Web Locks were mocked in the service/DOM harness;
-real multi-tab browser behaviour remains a manual acceptance check.
+## Static application checks
 
-## Quick acceptance check on your device
+- Every JavaScript source file passes `node --check`.
+- 21 HTML pages were parsed for duplicate IDs and broken local script/style/page links: **PASS**.
+- Main daily navigation is limited to Home, Sales, Purchases, People, Products / Inventory,
+  Expenses, Reports and Settings; legacy/technical pages remain available for advanced/backward workflows.
 
-1. Open at HTTPS or localhost and create a sample customer, vendor and product.
-2. Save/edit a draft, finalise it, and check quantity and stock ledger.
-3. Open Print and inspect Save PDF.
-4. Record a payment larger than the balance; verify available credit.
-5. Return a sold item; allocate or record refund of the available credit.
-6. Download a backup, restore it, and compare balances.
-7. Open two tabs. Save in one, then confirm a stale save in the other is rejected.
-8. Check tables and dialogs at your phone/tablet width.
+## Browser smoke-test note
 
-Do these checks with sample data before entering live records. Existing V5
-history needs reconciliation because V6 cannot infer missing historical events.
+A Chromium binary is present in the build environment, but this sandbox blocks local/file page
+navigation (`ERR_BLOCKED_BY_ADMINISTRATOR`). Because of that environment restriction, automated
+visual browser navigation could not be completed here. Core logic and static page/link validation
+were run successfully instead.
+
+## Data compatibility
+
+V7 uses `jkDatabaseV7` and retains V6 as a migration source. Existing V6 data is not overwritten by
+the package. Migration creates unified People links while preserving historical document totals.
+
+Build: `7.0.0-local`

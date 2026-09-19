@@ -105,6 +105,17 @@ function checkStock(d, items) {
       );
   }
 }
+function captureBusinessProfile(d) {
+  d.businessProfiles ||= [];
+  const snapshot = structuredClone(d.settings);
+  const signature = JSON.stringify(snapshot);
+  let profile = d.businessProfiles.find((x) => x.signature === signature);
+  if (!profile) {
+    profile = { id: uid("bizsnap"), signature, settings: snapshot, createdAt: new Date().toISOString() };
+    d.businessProfiles.push(profile);
+  }
+  return profile.id;
+}
 function postInvoice(d, i) {
   checkStock(d, i.items);
   for (const x of i.items) {
@@ -124,7 +135,13 @@ function postInvoice(d, i) {
   }
   i.state = "posted";
   i.voided = false;
-  i.businessSnapshot = structuredClone(d.settings);
+  i.businessProfileId = captureBusinessProfile(d);
+  i.businessSnapshot = { ...structuredClone(d.settings), logoDataUrl: "" };
+  const customer = i.customerId ? d.customers.find((x) => x.id === i.customerId) : null;
+  const person = customer?.personId ? d.people?.find((x) => x.id === customer.personId) : null;
+  i.customerSnapshot = structuredClone(person || customer || {
+    name: i.customerName || "Walk-in Customer", phone: "", email: "", address: ""
+  });
   i.currency = d.settings.currency;
   i.postedAt = new Date().toISOString();
   audit(d, "Invoice finalised", i.number, i.id);
@@ -209,7 +226,7 @@ export const voidDocument = (type, id) =>
     if (!posted(i)) throw Error("Only finalised documents can be voided.");
     if (i.legacy)
       throw Error(
-        "Imported documents require reconciliation. Use a V6 credit note for an imported invoice; imported purchase history cannot be safely reversed automatically.",
+        "Imported documents require reconciliation. Use a V7 credit note for an imported invoice; imported purchase history cannot be safely reversed automatically.",
       );
     const side = type === "invoices" ? "customer" : "vendor";
     if (financialLinks(d, id, side) || Number(i.creditApplied))
@@ -284,6 +301,104 @@ export const savePurchase = (o, lines) =>
     audit(d, "Purchase bill created", i.number, i.id);
     return i.id;
   });
+function identityMatch(person, o) {
+  const email = String(o.email || "").trim().toLowerCase();
+  const phone = String(o.phone || "").replace(/\D/g, "");
+  return (email && String(person.email || "").trim().toLowerCase() === email) ||
+    (phone && String(person.phone || "").replace(/\D/g, "") === phone);
+}
+function syncPerson(person, o) {
+  for (const key of ["name", "contact", "phone", "email", "address", "notes"])
+    if (String(o[key] || "").trim()) person[key] = String(o[key]).trim();
+  person.updatedAt = new Date().toISOString();
+}
+function linkMasterToPerson(d, type, master) {
+  d.people ||= [];
+  const role = type === "customers" ? "customer" : "vendor";
+  let person = master.personId ? d.people.find((p) => p.id === master.personId) : null;
+  if (!person) person = d.people.find((p) => identityMatch(p, master));
+  if (!person) {
+    person = {
+      id: uid("person"), name: master.name, contact: master.contact || "", phone: master.phone || "",
+      email: master.email || "", address: master.address || "", notes: master.notes || "",
+      roles: [], createdAt: new Date().toISOString(),
+    };
+    d.people.push(person);
+  }
+  syncPerson(person, master);
+  person.roles ||= [];
+  if (!person.roles.includes(role)) person.roles.push(role);
+  master.personId = person.id;
+  return person;
+}
+function ensureRoleForPerson(d, person, role) {
+  const type = role === "customer" ? "customers" : "vendors";
+  let master = d[type].find((x) => x.personId === person.id);
+  if (!master) {
+    master = {
+      id: uid(role === "customer" ? "c" : "v"), personId: person.id,
+      name: person.name, contact: person.contact || "", phone: person.phone || "",
+      email: person.email || "", address: person.address || "", notes: person.notes || "",
+    };
+    d[type].push(master);
+  } else {
+    Object.assign(master, {
+      name: person.name, contact: person.contact || "", phone: person.phone || "",
+      email: person.email || "", address: person.address || "", notes: person.notes || "",
+    });
+  }
+  person.roles ||= [];
+  if (!person.roles.includes(role)) person.roles.push(role);
+  return master;
+}
+function resolveParty(d, role, o) {
+  const type = role === "customer" ? "customers" : "vendors";
+  const id = o[role === "customer" ? "customerId" : "vendorId"];
+  if (id) {
+    const master = find(d, type, id);
+    const person = linkMasterToPerson(d, type, master);
+    syncPerson(person, o);
+    return ensureRoleForPerson(d, person, role);
+  }
+  const name = textValue(o.name || o.customerName || o.vendorName, role === "customer" ? "Customer name" : "Vendor name");
+  d.people ||= [];
+  let person = d.people.find((p) => identityMatch(p, o));
+  if (!person) {
+    person = { id: uid("person"), name, contact: "", phone: "", email: "", address: "", notes: "", roles: [], createdAt: new Date().toISOString() };
+    d.people.push(person);
+  }
+  syncPerson(person, { ...o, name });
+  return ensureRoleForPerson(d, person, role);
+}
+export const savePerson = (o) => transaction((d) => {
+  d.people ||= [];
+  const name = textValue(o.name, "Name");
+  let person = o.id ? d.people.find((p) => p.id === o.id) : null;
+  if (o.id && !person) throw Error("Person no longer exists. Reload and try again.");
+  const duplicate = d.people.find((p) => p.id !== o.id && identityMatch(p, o));
+  if (duplicate) throw Error("A person with this phone or email already exists.");
+  if (!person) {
+    person = { id: uid("person"), roles: [], createdAt: new Date().toISOString() };
+    d.people.push(person);
+  }
+  syncPerson(person, { ...o, name });
+  const requested = [o.customer === "true" || o.customer === "on" ? "customer" : "", o.vendor === "true" || o.vendor === "on" ? "vendor" : ""].filter(Boolean);
+  if (!requested.length) throw Error("Choose Customer, Vendor, or both roles.");
+  for (const role of requested) ensureRoleForPerson(d, person, role);
+  for (const role of ["customer", "vendor"]) {
+    if (requested.includes(role) || !person.roles?.includes(role)) continue;
+    const type = role === "customer" ? "customers" : "vendors";
+    const master = d[type].find((x) => x.personId === person.id);
+    const linked = role === "customer"
+      ? [...d.invoices, ...d.quotes].some((x) => x.customerId === master?.id)
+      : d.purchases.some((x) => x.vendorId === master?.id);
+    if (!linked && master) d[type] = d[type].filter((x) => x.id !== master.id);
+    if (!linked) person.roles = person.roles.filter((x) => x !== role);
+  }
+  audit(d, o.id ? "Person updated" : "Person created", person.name, person.id);
+  return person.id;
+});
+
 export const saveMaster = (type, o) =>
   transaction((d) => saveMasterIn(d, type, o));
 function saveMasterIn(d, type, input) {
@@ -333,6 +448,7 @@ function saveMasterIn(d, type, input) {
       );
   } else if (existing) Object.assign(existing, x);
   else d[type].push(x);
+  if (type === "customers" || type === "vendors") linkMasterToPerson(d, type, x);
   audit(
     d,
     existing ? "Record updated" : "Record created",
@@ -679,37 +795,125 @@ export const convertQuote = (id) =>
     q.invoiceId = i.id;
     audit(d, "Quote converted to draft", `${q.number} → ${i.number}`, id);
   });
+export const saveSaleDeal = (o, lines) => transaction((d) => {
+  const dealType = o.dealType === "quote" ? "quote" : "sale";
+  dateValue(o.date);
+  const customer = resolveParty(d, "customer", {
+    customerId: o.customerId, name: o.customerName, phone: o.phone, email: o.email, address: o.address,
+  });
+  const calc = totals(d, lines, o.discount || 0);
+  if (dealType === "quote") {
+    dateValue(o.validUntil);
+    if (o.validUntil < o.date) throw Error("Valid-until date cannot precede quote date.");
+    const q = {
+      id: uid("q"), number: nextNumber(d, "quotes"), ...calc,
+      customerId: customer.id, customerName: customer.name, personId: customer.personId,
+      customerSnapshot: structuredClone(d.people.find((p) => p.id === customer.personId) || customer),
+      date: o.date, validUntil: o.validUntil, notes: String(o.notes || ""), status: "Open",
+      currency: d.settings.currency,
+    };
+    d.quotes.push(q);
+    audit(d, "Quote created", q.number, q.id);
+    return { kind: "quote", id: q.id };
+  }
+  const dueDate = o.dueDate || o.date;
+  dates({ date: o.date, dueDate });
+  const i = {
+    id: uid("i"), number: nextNumber(d, "invoices"), ...calc,
+    date: o.date, dueDate, customerId: customer.id, customerName: customer.name,
+    personId: customer.personId, notes: String(o.notes || ""), state: "draft", voided: false,
+    currency: d.settings.currency,
+  };
+  d.invoices.push(i);
+  postInvoice(d, i);
+  const preset = o.paymentPreset || "full";
+  let amount = preset === "unpaid" ? 0 : preset === "partial" ? number(o.paymentAmount || 0, "Payment", 0) : i.total;
+  if (amount > 0) {
+    d.payments.push({ id: uid("pay"), invoiceId: i.id, date: o.paymentDate || o.date, amount: round(amount), method: String(o.paymentMethod || "Cash"), reference: String(o.paymentReference || ""), notes: "Recorded with sale" });
+    audit(d, "Payment recorded", `${i.number}: ${round(amount)}`, i.id);
+  }
+  audit(d, "Sale saved", `${i.number} · ${customer.name}`, i.id);
+  return { kind: "invoice", id: i.id };
+});
+
+export const savePurchaseDeal = (o, lines) => transaction((d) => {
+  dates(o);
+  const vendor = resolveParty(d, "vendor", {
+    vendorId: o.vendorId, name: o.vendorName, phone: o.phone, email: o.email, address: o.address,
+  });
+  const vendorBillNo = String(o.vendorBillNo || "").trim();
+  if (vendorBillNo && d.purchases.some((x) => x.vendorId === vendor.id && String(x.vendorBillNo || "").toLowerCase() === vendorBillNo.toLowerCase()))
+    throw Error("This vendor bill number already exists for this vendor.");
+  const i = {
+    id: uid("pb"), number: nextNumber(d, "purchases"), ...totals(d, lines, 0),
+    date: o.date, dueDate: o.dueDate || o.date, vendorId: vendor.id, vendorName: vendor.name,
+    personId: vendor.personId, vendorBillNo, notes: String(o.notes || ""), state: "posted",
+    currency: d.settings.currency, businessProfileId: captureBusinessProfile(d), businessSnapshot: { ...structuredClone(d.settings), logoDataUrl: "" },
+    vendorSnapshot: structuredClone(d.people.find((p) => p.id === vendor.personId) || vendor),
+    postedAt: new Date().toISOString(),
+  };
+  d.purchases.push(i);
+  for (const x of i.items) if (x.productId) stockMove(d, x.productId, x.qty, "Purchase", i.number, x.description, i.date);
+  const preset = o.paymentPreset || "full";
+  let amount = preset === "unpaid" ? 0 : preset === "partial" ? number(o.paymentAmount || 0, "Payment", 0) : i.total;
+  if (amount > 0) {
+    d.vendorPayments.push({ id: uid("pay"), purchaseId: i.id, date: o.paymentDate || o.date, amount: round(amount), method: String(o.paymentMethod || "Cash"), reference: String(o.paymentReference || ""), notes: "Recorded with purchase" });
+    audit(d, "Vendor payment recorded", `${i.number}: ${round(amount)}`, i.id);
+  }
+  audit(d, "Purchase saved", `${i.number} · ${vendor.name}`, i.id);
+  return i.id;
+});
+
+export const convertQuoteToSale = (id) => transaction((d) => {
+  const q = find(d, "quotes", id);
+  if (q.status === "Converted") throw Error("Quote already converted.");
+  const due = new Date();
+  due.setDate(due.getDate() + Number(d.settings.defaultDueDays || 30));
+  const dueDate = `${due.getFullYear()}-${String(due.getMonth()+1).padStart(2,"0")}-${String(due.getDate()).padStart(2,"0")}`;
+  const i = {
+    id: uid("i"), number: nextNumber(d, "invoices"),
+    items: structuredClone(q.items || []).map((x) => ({ ...x, lineId: uid("line") })),
+    subtotal: q.subtotal, discount: q.discount, taxable: q.taxable, tax: q.tax, taxRate: q.taxRate, total: q.total,
+    customerId: q.customerId, customerName: q.customerName, personId: q.personId || "",
+    date: today(), dueDate, state: "draft", voided: false, notes: `Converted from ${q.number}${q.notes ? " · " + q.notes : ""}`, currency: q.currency || d.settings.currency,
+  };
+  d.invoices.push(i);
+  postInvoice(d, i);
+  q.status = "Converted"; q.invoiceId = i.id; q.convertedAt = new Date().toISOString();
+  audit(d, "Quote converted to sale", `${q.number} → ${i.number}`, q.id);
+  return i.id;
+});
+
 export const saveSettings = (o) =>
   transaction((d) => {
     const s = { ...d.settings };
     for (const k of [
-      "businessName",
-      "legalName",
-      "hstNo",
-      "address",
-      "phone",
-      "email",
-      "invoicePrefix",
-    ])
-      s[k] = String(o[k] ?? s[k]).trim();
+      "businessName", "legalName", "hstNo", "address", "phone", "email", "invoicePrefix",
+      "quotePrefix", "returnPrefix", "purchasePrefix", "paymentInstructions", "invoiceTerms", "thankYouMessage",
+    ]) s[k] = String(o[k] ?? s[k] ?? "").trim();
     textValue(s.businessName, "Business name");
     textValue(s.invoicePrefix, "Invoice prefix");
     s.hstRate = number(o.hstRate, "HST rate", 0, 100);
-    s.lowStockDefault = number(o.lowStockDefault, "Low-stock level");
+    s.lowStockDefault = number(o.lowStockDefault, "Low-stock level", 0);
     s.nextInvoice = number(o.nextInvoice, "Next invoice number", 1, 1e9);
-    if (!Number.isInteger(s.nextInvoice))
-      throw Error("Invoice counter must be an integer.");
-    if (!["CAD", "USD", "INR"].includes(o.currency))
-      throw Error("Invalid currency.");
-    if (
-      o.currency !== s.currency &&
-      ["invoices", "purchases", "expenses", "quotes"].some((k) => d[k].length)
-    )
+    s.defaultDueDays = number(o.defaultDueDays ?? s.defaultDueDays, "Default due days", 0, 3650);
+    s.defaultQuoteDays = number(o.defaultQuoteDays ?? s.defaultQuoteDays, "Default quote days", 0, 3650);
+    if (!Number.isInteger(s.nextInvoice) || !Number.isInteger(s.defaultDueDays) || !Number.isInteger(s.defaultQuoteDays))
+      throw Error("Numbering and default-day values must be whole numbers.");
+    if (!["CAD", "USD", "INR"].includes(o.currency)) throw Error("Invalid currency.");
+    if (o.currency !== s.currency && ["invoices", "purchases", "expenses", "quotes"].some((k) => d[k].length))
       throw Error("Currency cannot change after financial records exist.");
     s.currency = o.currency;
     s.allowNegativeStock = o.allowNegativeStock === "true";
+    if (o.accentColor && !/^#[0-9a-f]{6}$/i.test(o.accentColor)) throw Error("Accent colour must be a 6-digit hex colour.");
+    s.accentColor = o.accentColor || s.accentColor || "#155eef";
+    if (o.logoDataUrl !== undefined) {
+      if (o.logoDataUrl && !/^data:image\/(png|jpeg|webp);base64,/i.test(o.logoDataUrl)) throw Error("Logo must be a PNG, JPG or WebP image.");
+      if (String(o.logoDataUrl || "").length > 120000) throw Error("Logo is too large. Use a small optimized image under about 80 KB.");
+      s.logoDataUrl = String(o.logoDataUrl || "");
+    }
     d.settings = s;
-    audit(d, "Settings updated", "Business profile");
+    audit(d, "Settings updated", "Business profile and document design");
   });
 export const importMasters = (type, rows) =>
   transaction((d) => {
@@ -727,6 +931,11 @@ export const importMasters = (type, rows) =>
     for (let n = 1; n < rows.length; n++) {
       const o = Object.fromEntries(h.map((k, j) => [k, rows[n][j] || ""]));
       delete o.id;
+      for (const [field, value] of Object.entries(o)) {
+        if (/^[=+@\t\r]/.test(String(value || ""))) {
+          throw Error(`CSV row ${n + 1}: unsafe spreadsheet formula prefix in ${field}. No rows were saved.`);
+        }
+      }
       if (
         o[key] &&
         d[type].some(
