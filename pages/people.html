@@ -2,11 +2,11 @@
 <html lang="en">
 <head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/><meta name="theme-color" content="#0b1220"/><title>People | JK Database</title><link rel="stylesheet" href="../assets/css/style.css"/></head>
 <body><div class="layout"><aside class="sidebar"></aside><main class="content">
-<div class="topbar"><div><h1>People</h1><div class="sub">Customers and vendors in one unified list</div></div><button class="btn primary" id="addPerson">+ Add Person</button></div>
+<div class="topbar"><div><h1>Customers &amp; Vendors</h1><div class="sub">Customers buy from you. Vendors supply your business.</div></div><div class="actions"><button class="btn" id="addCustomer">+ Add Customer</button><button class="btn primary" id="addVendor">+ Add Vendor</button></div></div>
 <div class="toolbar"><input class="search" id="search" placeholder="Search name, phone or email..."/><div class="note" id="count"></div></div>
 <div id="list" class="record-grid"></div>
-<dialog id="dlg"><form id="form" class="modal"><h2 id="modalTitle">Add Person</h2><p class="hint">Most people are created automatically from a Sale or Purchase. Use this form only when you want to add someone manually.</p><input type="hidden" name="id"/>
+<dialog id="dlg"><form id="form" class="modal"><h2 id="modalTitle">Add Customer</h2><p class="hint">This contact will be available in new sales and purchases. You can mark one contact as both a customer and vendor.</p><input type="hidden" name="id"/>
 <div class="formgrid"><div class="field"><label>Name / business name</label><input name="name" required/></div><div class="field"><label>Contact person</label><input name="contact"/></div><div class="field"><label>Phone</label><input name="phone" inputmode="tel"/></div><div class="field"><label>Email</label><input name="email" type="email"/></div><div class="field full"><label>Address</label><textarea name="address"></textarea></div><div class="field full"><label>Notes</label><input name="notes"/></div></div>
-<h3 style="margin-bottom:8px">Role</h3><div class="choice-row"><label class="choice"><input type="checkbox" name="customer" value="true"/> Customer</label><label class="choice"><input type="checkbox" name="vendor" value="true"/> Vendor</label></div>
-<div class="footer"><button type="button" class="btn" data-click="close">Cancel</button><button class="btn primary">Save Person</button></div></form></dialog>
+<h3 style="margin-bottom:8px">Use this contact as</h3><div class="choice-row"><label class="choice"><input type="checkbox" name="customer" value="true"/> Customer</label><label class="choice"><input type="checkbox" name="vendor" value="true"/> Vendor</label></div>
+<div class="footer"><button type="button" class="btn" data-click="close">Cancel</button><button class="btn primary" id="savePerson">Save Customer</button></div></form></dialog>
 </main></div><script type="module" src="../assets/js/bootstrap.js?entry=pages/people.js"></script></body></html>

@@ -5,7 +5,9 @@ import { adjustStock, importMasters } from "../services/business-service.js";
 
 export function initPage({ signal } = {}) {
 masterPage("products");
-$("list").addEventListener("click",(e)=>{const b=e.target.closest('[data-action="adjust"]');if(!b)return;const p=db.products.find((x)=>x.id===b.dataset.id);$("adjustForm").reset();$("adjustForm").elements.productId.value=p.id;$("adjustProduct").textContent=`${p.name} · currently ${p.qty} ${p.unit||""}`;$("adjustForm").elements.date.value=today();$("adjustDlg").showModal();});
+if (new URLSearchParams(location.search).get("new") === "1")
+  document.querySelector('[data-click="add"]')?.click();
+$("list").addEventListener("click",(e)=>{const b=e.target.closest('[data-action="adjust"]');if(!b)return;const p=db.products.find((x)=>x.id===b.dataset.id);$("adjustForm").reset();$("adjustForm").elements.productId.value=p.id;$("adjustProduct").textContent=`${p.name} · currently ${p.qty} ${p.unit||"pcs"}`;$("adjustForm").querySelector('[name="qty"]').closest(".field").querySelector("label").textContent=`Quantity change (${p.unit||"pcs"})`;$("adjustForm").elements.date.value=today();$("adjustDlg").showModal();});
 $("adjustCancel").addEventListener("click",()=>$("adjustDlg").close());
 $("adjustForm").addEventListener("submit",async(e)=>{e.preventDefault();const btn=e.submitter;btn.disabled=true;try{await adjustStock(Object.fromEntries(new FormData($("adjustForm"))));toast("Stock adjustment saved.","ok");await refreshPage();}catch(err){toast(err.message);btn.disabled=false;}});
 $("importProductsPage").addEventListener("change",async(e)=>{const f=e.target.files[0];if(!f)return;await run(async()=>{const rows=csvParse(await f.text());const r=await importMasters("products",rows);alert(`${r.added} imported; ${r.skipped} duplicates skipped.`);});e.target.value="";});

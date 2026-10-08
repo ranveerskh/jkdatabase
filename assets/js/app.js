@@ -31,6 +31,32 @@ export function toast(msg, type = "err") {
   clearTimeout(toast.timer);
   toast.timer = setTimeout(() => e.classList.remove("show"), 9000);
 }
+export function confirmTypedDelete(name, detail = "This cannot be undone.") {
+  const dialog = document.createElement("dialog");
+  dialog.className = "typed-delete-dialog";
+  dialog.innerHTML = `<form class="modal"><h2>Delete ${esc(name)}?</h2><p class="hint">${esc(detail)} Type <b>DELETE</b> to confirm.</p><div class="field"><label for="typed-delete-word">Confirmation</label><input id="typed-delete-word" autocomplete="off" autocapitalize="characters" aria-label="Type DELETE to confirm" /></div><div class="footer"><button type="button" class="btn" data-cancel>Keep record</button><button type="submit" class="btn danger" data-confirm disabled>Delete</button></div></form>`;
+  document.body.append(dialog);
+  const input = dialog.querySelector("#typed-delete-word"), confirmButton = dialog.querySelector("[data-confirm]");
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (confirmed) => {
+      if (settled) return;
+      settled = true;
+      if (dialog.open) dialog.close();
+      dialog.remove();
+      resolve(confirmed);
+    };
+    input.addEventListener("input", () => { confirmButton.disabled = input.value.trim().toLowerCase() !== "delete"; });
+    dialog.querySelector("[data-cancel]").addEventListener("click", () => finish(false));
+    dialog.addEventListener("cancel", () => finish(false), { once: true });
+    dialog.querySelector("form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      if (input.value.trim().toLowerCase() === "delete") finish(true);
+    });
+    dialog.showModal();
+    input.focus();
+  });
+}
 export async function run(fn, { reload = true } = {}) {
   try {
     const result = await fn();
@@ -166,10 +192,10 @@ export function boot() {
   const root = new URL("../../", import.meta.url),
     page = location.pathname.split("/").pop() || "index.html";
   const groups = [
-    ["MAIN", [["Home", "index.html"], ["Sales", "sales.html"], ["Purchases", "purchases.html"], ["People", "people.html"], ["Products / Inventory", "inventory.html"], ["Expenses", "expenses.html"], ["Reports", "reports.html"], ["Settings", "settings.html"]]],
+    ["DAILY WORK", [["Home", "index.html"], ["Sales", "sales.html"], ["Purchases", "purchases.html"], ["Customers & Vendors", "people.html"], ["Products & Stock", "inventory.html"], ["Expenses", "expenses.html"], ["Reports", "reports.html"], ["Settings", "settings.html"]]],
   ];
   document.querySelector(".sidebar").innerHTML =
-    '<div class="brand"><b>JK</b>JK Database<small>Version 7.2.1 · Cloud edition</small></div><nav class="nav">' +
+    '<div class="brand"><b>JK</b>JK Database<small>Version 7.2.2 · Cloud edition</small></div><nav class="nav" aria-label="Main navigation">' +
     groups
       .map(
         ([label, links]) =>
@@ -188,15 +214,25 @@ export function boot() {
   menuButton.type = "button";
   menuButton.className = "mobile-menu-btn";
   menuButton.setAttribute("aria-label", "Open menu");
+  menuButton.setAttribute("aria-expanded", "false");
+  menuButton.setAttribute("aria-controls", "main-navigation");
   menuButton.innerHTML = "☰ <span>Menu</span>";
   const shade = document.createElement("div");
   shade.className = "menu-shade";
   document.body.append(menuButton, shade);
   const sidebar = document.querySelector(".sidebar");
-  const closeMenu = () => document.body.classList.remove("menu-open");
-  menuButton.addEventListener("click", () => document.body.classList.toggle("menu-open"));
+  const nav = document.querySelector(".sidebar .nav");
+  nav.id = "main-navigation";
+  const closeMenu = () => { document.body.classList.remove("menu-open"); menuButton.setAttribute("aria-expanded", "false"); menuButton.setAttribute("aria-label", "Open menu"); };
+  menuButton.addEventListener("click", () => {
+    const open = !document.body.classList.contains("menu-open");
+    document.body.classList.toggle("menu-open", open);
+    menuButton.setAttribute("aria-expanded", String(open));
+    menuButton.setAttribute("aria-label", open ? "Close menu" : "Open menu");
+  });
   shade.addEventListener("click", closeMenu);
   sidebar.addEventListener("click", (event) => { if (event.target.closest("a")) closeMenu(); });
+  document.addEventListener("keydown", (event) => { if (event.key === "Escape") closeMenu(); });
   window.addEventListener("storage", (event) => {
     if (event.key === DB_KEY || event.key === null) {
       const notice = document.createElement("div");

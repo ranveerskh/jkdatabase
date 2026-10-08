@@ -3,7 +3,7 @@ import { totals } from "../services/business-service.js";
 
 export function lineEditor(purchase = false, { onTotals } = {}) {
   const rows = $("rows"), form = $("form");
-  const productOptions = () => option("", "Custom item (no inventory)") + db.products.map((p) => option(p.id, p.name)).join("");
+  const productOptions = () => option("", "Service / one-time charge (no stock)") + db.products.map((p) => option(p.id, p.name)).join("");
   const error = document.createElement("p");
   error.className = "inline-error";
   error.setAttribute("role", "status");
@@ -57,9 +57,8 @@ export function lineEditor(purchase = false, { onTotals } = {}) {
     const row = document.createElement("div");
     row.className = "invoice-row";
     row.innerHTML = `<label class="line-field product-field"><span>Product</span><select class="prod" aria-label="Product">${productOptions()}</select></label>
-      <label class="line-field"><span>Quantity</span><input aria-label="Quantity" class="qty" type="number" required min=".01" max="1000000" step=".01" value="${esc(item.qty ?? 1)}"></label>
-      <label class="line-field"><span>Unit</span><input aria-label="Unit" class="unit" maxlength="50" placeholder="pcs, kg, box" value="${esc(item.unit || product?.unit || "pcs")}"></label>
-      <label class="line-field"><span>${purchase ? "Cost per unit" : "Price per unit"}</span><input aria-label="${purchase ? "Cost per unit" : "Price per unit"}" class="price" type="number" required min="0" step=".01" value="${esc(item.price ?? 0)}"></label>
+      <label class="line-field quantity-field"><span>Quantity (with unit)</span><span class="quantity-control"><input aria-label="Quantity" class="qty" type="number" required min=".01" max="1000000" step=".01" value="${esc(item.qty ?? 1)}"><input aria-label="Unit used with quantity" class="unit" maxlength="50" placeholder="pcs" value="${esc(item.unit || product?.unit || "pcs")}"></span></label>
+      <label class="line-field price-field"><span>${purchase ? "Cost per unit" : "Price per unit"}</span><input aria-label="${purchase ? "Cost per unit" : "Price per unit"}" class="price" type="number" required min="0" step=".01" value="${esc(item.price ?? 0)}"></label>
       <label class="line-field description-field"><span>Description</span><input aria-label="Description" class="desc" required placeholder="Item description" value="${esc(item.description || "")}"></label>
       <button type="button" class="btn danger remove-line" aria-label="Remove line">×</button>`;
     rows.append(row);
@@ -89,8 +88,21 @@ export function lineEditor(purchase = false, { onTotals } = {}) {
     selectProduct(row, productId);
     row.querySelector(".qty").focus();
   }
+  function addOrIncrementProduct(productId) {
+    refreshProducts();
+    let row = [...rows.children].find((item) => item.querySelector(".prod").value === productId);
+    if (row) {
+      const qty = row.querySelector(".qty");
+      qty.value = String((Number(qty.value) || 0) + 1);
+      qty.dispatchEvent(new Event("input", { bubbles: true }));
+    } else {
+      row = [...rows.children].find((item) => !item.querySelector(".prod").value && !item.querySelector(".desc").value) || add();
+      selectProduct(row, productId);
+    }
+    return row;
+  }
   $("addRow").addEventListener("click", () => { const row = add(); row.querySelector(".prod").focus(); });
   for (const name of ["discount", "taxRate", "taxLabel"]) form.elements.namedItem(name)?.addEventListener("input", calculate);
   set();
-  return { values, set, calculate, refreshProducts, add, useProduct };
+  return { values, set, calculate, refreshProducts, add, useProduct, addOrIncrementProduct };
 }

@@ -14,7 +14,7 @@
         <div class="topbar">
           <div>
             <h1>Inventory</h1>
-            <div class="sub">Manage inventory and related business records</div>
+            <div class="sub">Products, current stock, and stock adjustments.</div>
           </div>
           <div class="actions">
             <label class="btn">Import CSV<input id="importProductsPage" type="file" accept=".csv" hidden></label><button class="btn primary" data-click="add">+ Create product</button>
@@ -34,16 +34,17 @@
               <div class="field">
                 <label>SKU</label><input name="sku" type="text" />
               </div>
+              <div class="field"><label>Barcode (optional)</label><input name="barcode" type="text" autocomplete="off" /></div>
+              <div class="field"><label>Product photo (optional)</label><input name="imageFile" type="file" accept="image/*" /><small class="hint">A small photo appears on the sale screen.</small><img id="productImagePreview" class="product-image-preview" hidden alt="Product preview" /></div>
               <div class="field">
                 <label>Product name</label
                 ><input name="name" type="text" />
               </div>
               <div class="field">
-                <label>Quantity on hand</label
-                ><input name="qty" type="number" step=".01" />
+                <label>Stock quantity and unit</label><span class="quantity-control product-quantity-control"><input name="qty" aria-label="Stock quantity" type="number" step=".01" /><input name="unit" aria-label="Unit used for stock" type="text" value="pcs" placeholder="pcs" maxlength="50" /></span>
               </div>
               <div class="field">
-                <label>Low-stock threshold</label
+                <label>Low-stock threshold (same unit)</label
                 ><input name="low" type="number" step=".01" />
               </div>
               <div class="field">
@@ -53,9 +54,6 @@
               <div class="field">
                 <label>Selling price</label
                 ><input name="price" type="number" step=".01" />
-              </div>
-              <div class="field">
-                <label>Unit of measure</label><input name="unit" type="text" value="pcs" placeholder="e.g. pcs, kg, box" maxlength="50" />
               </div>
             </div>
             <div class="footer">

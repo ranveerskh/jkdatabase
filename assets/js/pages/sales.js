@@ -1,13 +1,35 @@
-import { $, db, esc, money, actions, today, toast, invoiceBalance, invoiceStatus, customerPaid, creditBalance, refreshPage, navigateTo } from "../app.js";
+import { $, db, esc, money, actions, today, toast, invoiceBalance, invoiceStatus, customerPaid, creditBalance, refreshPage, navigateTo, confirmTypedDelete } from "../app.js";
 import { saveSaleDeal, savePayment, voidDocument, saveMaster, convertQuoteToSale, finaliseInvoice, deleteRecord, duplicateInvoice, invoiceEditBlockReason, documentCancelBlockReason } from "../services/business-service.js";
 import { printInvoice, openPrintWindow } from "../services/print-service.js";
 import { lineEditor } from "./line-editor.js";
+import { compressProductImage } from "../core/product-image.js";
 
 export function initPage({ signal } = {}) {
 const form = $("form"), dlg = $("dlg"), paymentForm = $("paymentForm");
-let currentTotal = 0, activeFilter = "all";
+let currentTotal = 0, activeFilter = "all", dueDateManuallySet = false;
 const addDays = (iso, days) => { const d = new Date(iso + "T12:00:00"); d.setDate(d.getDate() + Number(days || 0)); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
 const lines = lineEditor(false, { onTotals: (t) => { currentTotal = t?.total || 0; syncPayment(); } });
+function renderCatalog() {
+  const query = $("catalogSearch").value.trim().toLowerCase();
+  const products = db.products.filter((p) => `${p.name} ${p.sku || ""} ${p.barcode || ""}`.toLowerCase().includes(query));
+  $("productCatalog").innerHTML = products.length ? products.map((p) => {
+    const unavailable = dealType() === "sale" && !db.settings.allowNegativeStock && Number(p.qty) <= 0;
+    const thumb = /^data:image\/(png|jpeg|webp);base64,/i.test(p.image || "")
+      ? `<img src="${p.image}" alt="" loading="lazy">` : esc((p.name || "?").slice(0, 1).toUpperCase());
+    return `<button type="button" class="catalog-product" data-product-id="${esc(p.id)}" ${unavailable ? "disabled" : ""} aria-label="Add ${esc(p.name)} to sale"><span class="catalog-product-thumb">${thumb}</span><span class="catalog-product-info"><b>${esc(p.name)}</b><small>${esc(p.sku || p.barcode || "No SKU")}</small><small>${Number(p.qty) || 0} ${esc(p.unit || "pcs")} · ${money(p.price)}</small></span></button>`;
+  }).join("") : '<p class="empty">No matching products.</p>';
+  $("catalogMessage").textContent = products.length ? "Tap a product to add it. Tap it again to increase the quantity." : "Create a product in Products & Stock or change your search.";
+}
+function addScannedCode(raw) {
+  const code = String(raw || "").trim().toLowerCase();
+  if (!code) return;
+  const product = db.products.find((p) => String(p.barcode || "").trim().toLowerCase() === code) ||
+    db.products.find((p) => String(p.sku || "").trim().toLowerCase() === code);
+  if (!product) { toast(`No product found for “${String(raw).trim()}”. Check its SKU or barcode.`); return; }
+  if (!db.settings.allowNegativeStock && Number(product.qty) <= 0) { toast(`${product.name} is out of stock.`); return; }
+  lines.addOrIncrementProduct(product.id);
+  toast(`${product.name} added to this sale.`, "ok");
+}
 
 function populateCustomers() {
   $("customerList").innerHTML = db.customers.map((c) => `<option value="${esc(c.name)}" label="${esc([c.phone,c.email].filter(Boolean).join(" · "))}"></option>`).join("");
@@ -24,7 +46,7 @@ function syncCustomer() {
   if (c) {
     $("customerPhone").value ||= c.phone || ""; $("customerEmail").value ||= c.email || ""; $("customerAddress").value ||= c.address || "";
     $("customerMessage").textContent = "Existing customer selected. Contact details will be linked to this transaction.";
-  } else $("customerMessage").textContent = "This customer will be created when you save.";
+  } else $("customerMessage").textContent = "New customer will be saved with this sale.";
 }
 function dealType() { return form.elements.namedItem("dealType").value; }
 function syncDealType() {
@@ -71,9 +93,10 @@ function invoiceActions(x, due) {
 }
 function openDeal(kind="sale", source=null) {
   form.reset(); $("customerId").value = ""; $("date").value = today(); $("paymentDate").value = today();
+  dueDateManuallySet = false;
   form.elements.namedItem("taxLabel").value = source?.taxLabel || db.settings.taxLabel || "HST";
   form.elements.namedItem("taxRate").value = source?.taxRate ?? db.settings.hstRate;
-  $("dueDate").value = addDays(today(), db.settings.defaultDueDays || 30); $("validUntil").value = addDays(today(), db.settings.defaultQuoteDays || 30);
+  $("dueDate").value = today(); $("validUntil").value = addDays(today(), db.settings.defaultQuoteDays || 30);
   form.querySelector(`input[name="dealType"][value="${kind}"]`).checked = true;
   form.querySelector('input[name="paymentPreset"][value="full"]').checked = true;
   if (source) {
@@ -89,10 +112,47 @@ function openDeal(kind="sale", source=null) {
 
 populateCustomers();
 $("newSale").addEventListener("click", () => openDeal("sale")); $("newQuote").addEventListener("click", () => openDeal("quote"));
+$("dueDate").addEventListener("input", () => { dueDateManuallySet = true; });
+$("date").addEventListener("input", () => {
+  if (!dueDateManuallySet && dealType() === "sale") $("dueDate").value = $("date").value;
+});
 [$("customerName"), $("customerPhone"), $("customerEmail")].forEach((e) => e.addEventListener("change", syncCustomer));
 form.querySelectorAll('input[name="dealType"]').forEach((e) => e.addEventListener("change", syncDealType));
+form.querySelectorAll('input[name="dealType"]').forEach((e) => e.addEventListener("change", renderCatalog));
 form.querySelectorAll('input[name="paymentPreset"]').forEach((e) => e.addEventListener("change", syncPayment));
 $("paymentAmount").addEventListener("input", syncPayment);
+$("productCatalog").addEventListener("click", (e) => { const b = e.target.closest("[data-product-id]"); if (b) lines.addOrIncrementProduct(b.dataset.productId); });
+$("catalogSearch").addEventListener("input", renderCatalog);
+$("scanForm").addEventListener("submit", (e) => { e.preventDefault(); addScannedCode($("scanCode").value); $("scanCode").value = ""; $("scanCode").focus(); });
+$("scanCode").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); $("scanForm").requestSubmit(); } });
+let scannerStream = null, scannerFrame = 0;
+function closeScanner() {
+  cancelAnimationFrame(scannerFrame); scannerFrame = 0;
+  scannerStream?.getTracks().forEach((track) => track.stop()); scannerStream = null;
+  $("scannerVideo").srcObject = null; $("scannerDlg").close();
+}
+$("scanProduct").addEventListener("click", async () => {
+  if (!window.BarcodeDetector || !navigator.mediaDevices?.getUserMedia) {
+    $("scanCode").focus(); toast("Camera scanning is not supported in this browser. Use a USB/Bluetooth barcode scanner or type the SKU/barcode."); return;
+  }
+  try {
+    const detector = new BarcodeDetector({ formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39", "qr_code"] });
+    scannerStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
+    const video = $("scannerVideo"); video.srcObject = scannerStream; await video.play();
+    $("scannerDlg").showModal();
+    const scan = async () => {
+      if (!scannerStream) return;
+      try { const found = await detector.detect(video); if (found.length) { const value = found[0].rawValue; closeScanner(); addScannedCode(value); return; } }
+      catch { $("scannerMessage").textContent = "Keep the barcode centred and in focus."; }
+      scannerFrame = requestAnimationFrame(scan);
+    };
+    scannerFrame = requestAnimationFrame(scan);
+  } catch (error) {
+    closeScanner(); toast(error.name === "NotAllowedError" ? "Allow camera access to scan a barcode, or use the scanner input." : "Could not start the camera. Use the scanner input instead.");
+  }
+});
+$("scannerCancel").addEventListener("click", closeScanner);
+$("scannerDlg").addEventListener("close", () => { cancelAnimationFrame(scannerFrame); scannerFrame = 0; scannerStream?.getTracks().forEach((track) => track.stop()); scannerStream = null; $("scannerVideo").srcObject = null; });
 
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -149,7 +209,7 @@ $("list").addEventListener("click", async (e) => {
     if(action==="edit") await navigateTo(`invoices.html?edit=${encodeURIComponent(id)}`);
     if(action==="return") await navigateTo(`returns.html?invoice=${encodeURIComponent(id)}`);
     if(action==="finalise" && confirm("Finalise this draft and reduce stock?")){ await finaliseInvoice(id); await refreshPage(); }
-    if(action==="delete" && confirm("Delete this draft invoice? Finalised invoices are retained for accounting history.")){ await deleteRecord("invoices",id); await refreshPage(); }
+    if(action==="delete" && await confirmTypedDelete("draft invoice", "Only drafts can be deleted. Finalised invoices are retained for accounting history.")){ await deleteRecord("invoices",id); await refreshPage(); }
     if(action==="convert") { if(confirm("Convert this quote to a sale? Stock will be reduced and the new invoice will start unpaid.")){ const preview = openPrintWindow(); try { const invoiceId=await convertQuoteToSale(id); printInvoice(invoiceId, preview); await refreshPage(); } catch (error) { preview?.close(); throw error; } } }
     if(action==="void" && confirm("Cancel this unpaid invoice? Its stock will be restored and its outstanding balance removed. The invoice will remain in history.")){ await voidDocument("invoices",id); await refreshPage(); }
     if(action==="pay") {
@@ -161,11 +221,15 @@ $("list").addEventListener("click", async (e) => {
 paymentForm.addEventListener("submit", async(e)=>{ e.preventDefault(); const btn=e.submitter; btn.disabled=true; try{ await savePayment("customer",Object.fromEntries(new FormData(paymentForm))); toast("Payment recorded.","ok"); await refreshPage(); }catch(err){toast(err.message);btn.disabled=false;} });
 $("paymentCancel").addEventListener("click",()=>$("paymentDlg").close());
 
-$("quickProduct").addEventListener("click",()=>{ $("productForm").reset(); $("productDlg").showModal(); });
+$("quickProduct").addEventListener("click",()=>{ $("productForm").reset(); delete $("productForm").elements.imageFile.dataset.compressed; $("quickProductImagePreview").hidden = true; $("productDlg").showModal(); });
 $("productCancel").addEventListener("click",()=>$("productDlg").close());
-$("productForm").addEventListener("submit",async(e)=>{e.preventDefault(); const btn=e.submitter;btn.disabled=true;try{const id=await saveMaster("products",Object.fromEntries(new FormData($("productForm"))));$("productDlg").close();lines.useProduct(id);toast("Product created and selected.","ok");}catch(err){toast(err.message);}finally{btn.disabled=false;}});
+$("productForm").elements.imageFile.addEventListener("change", async (e) => { if (!e.target.files[0]) return; try { const image = await compressProductImage(e.target.files[0]); $("quickProductImagePreview").src = image; $("quickProductImagePreview").hidden = false; e.target.dataset.compressed = image; } catch (error) { e.target.value = ""; toast(error.message); } });
+$("productForm").addEventListener("submit",async(e)=>{e.preventDefault(); const btn=e.submitter;btn.disabled=true;try{const o=Object.fromEntries(new FormData($("productForm")));o.image=$("productForm").elements.imageFile.dataset.compressed||"";const id=await saveMaster("products",o);$("productDlg").close();renderCatalog();lines.useProduct(id);toast("Product created and selected.","ok");}catch(err){toast(err.message);}finally{btn.disabled=false;}});
 
 document.addEventListener("keydown",(e)=>{ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="n"&&!dlg.open){e.preventDefault();openDeal("sale");} }, { signal });
-render();
+render(); renderCatalog();
+const pageParams = new URLSearchParams(location.search);
+if (pageParams.get("new") === "sale" || pageParams.get("new") === "quote")
+  openDeal(pageParams.get("new"));
 
 }

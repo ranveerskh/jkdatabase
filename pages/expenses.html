@@ -14,7 +14,7 @@
         <div class="topbar">
           <div>
             <h1>Expenses</h1>
-            <div class="sub">Track operating costs and HST paid</div>
+            <div class="sub">Record a receipt total and the tax rate shown on it.</div>
           </div>
           <div class="actions">
             <button class="btn primary" data-click="open">+ Add Expense</button>
@@ -65,12 +65,17 @@
                 </select>
               </div>
               <div class="field">
-                <label>Total amount</label
+                <label>Total on receipt (includes tax)</label
                 ><input name="amount" type="number" step=".01" />
               </div>
               <div class="field">
-                <label>HST included</label
-                ><input name="tax" type="number" step=".01" />
+                <label>Tax name</label><input name="taxLabel" maxlength="50" />
+              </div>
+              <div class="field">
+                <label>Tax rate (%)</label><input name="taxRate" type="number" min="0" max="100" step="any" />
+              </div>
+              <div class="field full" id="expenseTaxPreview" aria-live="polite">
+                Tax included at this rate: <b id="expenseTaxAmount">$0.00</b>
               </div>
               <div class="field full">
                 <label>Description / receipt reference</label

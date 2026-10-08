@@ -16,7 +16,7 @@ initial._rev = "test-initial";
 Object.assign(initial.settings, { businessName: "Example Trading Ltd.", legalName: "Example Trading Ltd.", address: "100 Market Street\nToronto ON\nCanada", phone: "555-0100", email: "sales@example.test" });
 initial.products = [
   { id: "widget", name: "Widget", sku: "W1", qty: 10, unit: "pcs", cost: 4, price: 10, low: 2 },
-  { id: "tea", name: "Tea", sku: "T1", qty: 5.5, unit: "kg", cost: 4, price: 10, low: 1 },
+  { id: "tea", name: "Tea", sku: "T1", barcode: "TEA123", qty: 5.5, unit: "kg", cost: 4, price: 10, low: 1 },
 ];
 const business = "businesses/jkdatabase-main";
 const entries = [
@@ -86,10 +86,30 @@ try {
     assert.equal(await page.evaluate(() => window.__testCloud.metrics.membershipReads), 1);
     await page.evaluate(() => window.__navigationMarker = "same-session");
   });
+  await check("sale kiosk searches products, adds tiles once, and scans SKU/barcode into the same line", async () => {
+    await page.locator("#newSale").click();
+    await page.locator("#catalogSearch").fill("Widget");
+    assert.equal(await page.locator("#productCatalog [data-product-id='widget']").count(), 1);
+    await page.locator("#productCatalog [data-product-id='widget']").click();
+    await page.locator("#productCatalog [data-product-id='widget']").click();
+    assert.equal(await page.locator("#rows .invoice-row").count(), 1);
+    assert.equal(await page.locator("#rows .qty").inputValue(), "2");
+    await page.locator("#scanCode").fill("TEA123");
+    await page.locator("#scanCode").press("Enter");
+    assert.equal(await page.locator("#rows .invoice-row").count(), 2);
+    assert.equal(await page.locator("#rows .prod").nth(1).inputValue(), "tea");
+    await closeSale();
+  });
   await check("sale/quote dates and payments toggle correctly; UI copy is English", async () => {
     await page.locator("#newSale").click();
     assert.equal(await page.locator("#validWrap").isVisible(), false);
     assert.equal(await page.locator("#paymentSection").isVisible(), true);
+    assert.equal(await page.locator("#dueDate").inputValue(), await page.locator("#date").inputValue());
+    await page.locator("#date").fill("2026-09-01");
+    assert.equal(await page.locator("#dueDate").inputValue(), "2026-09-01");
+    await page.locator("#dueDate").fill("2026-09-05");
+    await page.locator("#date").fill("2026-09-02");
+    assert.equal(await page.locator("#dueDate").inputValue(), "2026-09-05");
     await page.locator('input[name="dealType"][value="quote"]').check();
     assert.equal(await page.locator("#validWrap").isVisible(), true);
     assert.equal(await page.locator("#dueWrap").isVisible(), false);
@@ -101,6 +121,7 @@ try {
   await fillSale();
   await check("quantity, unit and custom tax update totals and payment", async () => {
     assert.equal(await page.locator("#rows .unit").inputValue(), "pcs");
+    assert.equal(await page.locator("#rows .quantity-control").count(), 1);
     assert.equal(await page.locator("#total").textContent(), "$21.00");
     await page.locator('#form [name="taxRate"]').fill("0");
     assert.equal(await page.locator("#total").textContent(), "$20.00");
@@ -160,6 +181,38 @@ try {
     assert.equal(await page.evaluate(() => window.__testCloud.metrics.membershipReads), 1);
     assert.equal(await page.locator(".mobile-menu-btn").count(), 1);
     assert.equal(await page.locator(".record-card").count(), 1);
+  });
+  await check("home shortcuts open the exact task, and phone/tablet navigation stays compact", async () => {
+    await go("/index.html");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.getByRole("link", { name: "New Sale" }).click();
+    await page.locator("#dlg").waitFor({ state: "visible" });
+    await closeSale();
+    await page.getByRole("link", { name: "Create Product" }).click();
+    await page.locator("#dlg").waitFor({ state: "visible" });
+    await page.locator('#dlg [data-click="close"]').click();
+    for (const [label, width, height] of [["phone", 390, 844], ["ipad", 768, 1024]]) {
+      await page.setViewportSize({ width, height });
+      const menu = page.locator(".mobile-menu-btn");
+      await menu.click();
+      assert.equal(await menu.getAttribute("aria-expanded"), "true");
+      await page.screenshot({ path: resolve(output, `${label}-navigation.png`) });
+      await page.getByRole("link", { name: "Customers & Vendors" }).click();
+      await page.getByRole("heading", { name: "Customers & Vendors" }).waitFor();
+      assert.equal(await menu.getAttribute("aria-expanded"), "false");
+    if (label === "phone") {
+      await page.getByRole("button", { name: "+ Add Customer" }).click();
+      await page.locator('#form [name="name"]').fill("Temporary Contact");
+      await page.locator("#savePerson").click();
+      const contact = page.locator(".people-card").filter({ hasText: "Temporary Contact" });
+      await contact.getByRole("button", { name: "Delete" }).click();
+      await page.locator("#typed-delete-word").fill("DELETE");
+      await page.locator(".typed-delete-dialog [data-confirm]").click();
+      await page.getByText("Temporary Contact", { exact: true }).waitFor({ state: "detached" });
+    }
+    }
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+    await page.setViewportSize({ width: 1440, height: 1000 });
   });
   await check("all 21 app pages initialize and browser back/forward preserve the session", async () => {
     for (const file of (await readdir(resolve(root, "pages"))).filter((file) => file.endsWith(".html"))) await go("/pages/" + file);
@@ -251,6 +304,10 @@ try {
     await page.locator("#dlg").waitFor({ state: "hidden" });
     assert.equal((await db()).customers[0].phone, "5550000000");
     await page.getByRole("button", { name: "Delete", exact: true }).first().click();
+    await page.locator(".typed-delete-dialog").waitFor({ state: "visible" });
+    assert.equal(await page.locator(".typed-delete-dialog [data-confirm]").isDisabled(), true);
+    await page.locator("#typed-delete-word").fill("delete");
+    await page.locator(".typed-delete-dialog [data-confirm]").click();
     await page.locator("#toast.show").waitFor();
     assert.equal((await db()).customers.length, 1);
   });
@@ -262,6 +319,9 @@ try {
     await page.locator("#form button.btn.primary").click();
     await page.locator("#dlg").waitFor({ state: "hidden" });
     await page.locator("#list tbody tr").filter({ hasText: "Test Box Updated" }).getByRole("button", { name: "Delete", exact: true }).click();
+    await page.locator(".typed-delete-dialog").waitFor({ state: "visible" });
+    await page.locator("#typed-delete-word").fill("DELETE");
+    await page.locator(".typed-delete-dialog [data-confirm]").click();
     await page.getByText("Test Box Updated", { exact: true }).waitFor({ state: "detached" });
     await page.locator("#list tbody tr").filter({ hasText: "Widget" }).getByRole("button", { name: "Delete", exact: true }).click();
     await page.locator("#toast.show").waitFor();
@@ -277,6 +337,21 @@ try {
     assert.deepEqual(await db(), before);
     assert.equal(await page.locator("#dlg").isVisible(), true);
     await closeSale();
+  });
+  await check("expense entry accepts a tax rate and previews the included HST amount", async () => {
+    await go("/pages/expenses.html?new=1");
+    await page.locator('#form [name="payee"]').fill("Phone Provider");
+    await page.locator('#form [name="amount"]').fill("113");
+    await page.locator('#form [name="taxRate"]').fill("13");
+    assert.equal(await page.locator("#expenseTaxAmount").textContent(), "$13.00");
+    await page.locator('#form [name="taxRate"]').fill("0");
+    assert.equal(await page.locator("#expenseTaxAmount").textContent(), "$0.00");
+    await page.locator('#form [name="taxRate"]').fill("13");
+    await page.locator('#dlg button.btn.primary').click();
+    const expense = (await db()).expenses.at(-1);
+    assert.equal(expense.amount, 113);
+    assert.equal(expense.tax, 13);
+    assert.equal(expense.taxRate, 13);
   });
   await check("invoice list Preview / Print and long Letter/A4 invoices render without errors", async () => {
     const number = await page.evaluate(async () => {

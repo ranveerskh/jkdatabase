@@ -382,6 +382,22 @@ test("customer and product edits remain available with guarded deletion", async 
   await B.deleteRecord("products", unusedProduct);
   assert.equal(repo.db.products.some((x) => x.id === unusedProduct), false);
 });
+test("contact deletion removes unused linked masters, preserves an audit entry, and blocks transaction history", async () => {
+  const personId = await B.savePerson({ name: "Unused Contact", customer: "true" });
+  const customer = repo.db.customers.find((entry) => entry.personId === personId);
+  assert.ok(customer);
+  await B.deletePerson(personId);
+  assert.equal(repo.db.people.some((entry) => entry.id === personId), false);
+  assert.equal(repo.db.customers.some((entry) => entry.personId === personId), false);
+  assert.equal(repo.db.audit[0].action, "Contact deleted");
+
+  const linkedPersonId = await B.savePerson({ name: "Used Contact", customer: "true" });
+  const linkedCustomer = repo.db.customers.find((entry) => entry.personId === linkedPersonId);
+  await B.saveInvoice({ ...input(), customerId: linkedCustomer.id }, line(1), true);
+  await assert.rejects(() => B.deletePerson(linkedPersonId), /linked to sales or purchases/);
+  assert.ok(repo.db.people.some((entry) => entry.id === linkedPersonId));
+  assert.ok(repo.db.customers.some((entry) => entry.personId === linkedPersonId));
+});
 test("CSV imports are atomic, generate unique IDs and ledger", async () => {
   await assert.rejects(
     () =>
@@ -439,7 +455,7 @@ test("expense and date validations reject invalid entries", async () => {
         payee: "Vendor",
         category: "Other",
       }),
-    /Included HST/,
+    /Included tax/,
   );
   await assert.rejects(
     () => B.saveInvoice({ ...input(), date: "2026-02-30" }, line(), true),
@@ -449,6 +465,17 @@ test("expense and date validations reject invalid entries", async () => {
     () => B.saveInvoice({ ...input(), discount: 11 }, line(), true),
     /Discount/,
   );
+});
+test("expense tax rate is saved on the expense and extracts tax from a tax-inclusive receipt", async () => {
+  await B.saveExpense({ date, amount: 113, taxRate: 13, taxLabel: "HST", payee: "Phone", category: "Phone" });
+  const expense = repo.db.expenses.at(-1);
+  assert.equal(expense.amount, 113);
+  assert.equal(expense.tax, 13);
+  assert.equal(expense.taxRate, 13);
+  assert.equal(expense.taxLabel, "HST");
+  await B.saveExpense({ date, amount: 20, taxRate: 0, taxLabel: "GST", payee: "Bank", category: "Bank Fees" });
+  assert.equal(repo.db.expenses.at(-1).tax, 0);
+  assert.equal(repo.db.expenses.at(-1).taxRate, 0);
 });
 test("statement opening and closing include credits refunds and payments", async () => {
   const id = await sale();
@@ -589,6 +616,7 @@ test("V7 one-save sale auto-creates person, customer, payment and stock movement
   assert.equal(repo.db.customers[0].personId, repo.db.people[0].id);
   assert.equal(repo.db.invoices[0].state, "posted");
   assert.equal(repo.db.payments[0].amount, 22.6);
+  assert.equal(repo.db.payments[0].reference, repo.db.invoices[0].number, "payment reference defaults to generated invoice number");
   assert.equal(repo.db.products[0].qty, 3);
   assert.equal(F.invoiceBalance(repo.db.invoices[0]), 0);
 });
@@ -604,7 +632,17 @@ test("V7 quote saves items without stock or payment and converts once to posted 
   assert.equal(repo.db.products[0].qty, 1);
   assert.equal(repo.db.invoices.find((x)=>x.id===invoiceId).state, "posted");
   assert.equal(F.invoiceBalance(repo.db.invoices[0]), 22.6);
+  assert.equal(repo.db.invoices[0].taxRate, repo.db.quotes[0].taxRate, "quote tax rate is preserved on conversion");
+  assert.equal(repo.db.invoices[0].taxLabel, repo.db.quotes[0].taxLabel, "quote tax label is preserved on conversion");
   await assert.rejects(() => B.convertQuoteToSale(q.id), /already/);
+});
+
+test("product SKU and barcode are unique and optional product images persist", async () => {
+  await repo.replaceDB(storage.blankDB());
+  const id = await B.saveMaster("products", { name: "Scannable", sku: "SCAN-1", barcode: "0123456789", qty: 2, cost: 1, price: 2, image: "data:image/jpeg;base64,AA==" });
+  assert.equal(repo.db.products[0].image, "data:image/jpeg;base64,AA==");
+  await assert.rejects(() => B.saveMaster("products", { name: "Duplicate barcode", barcode: "0123456789", qty: 1 }), /Duplicate barcode/);
+  assert.equal(repo.db.products[0].id, id);
 });
 
 test("V7 purchase auto-creates vendor and records partial payment atomically", async () => {

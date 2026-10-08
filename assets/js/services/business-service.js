@@ -451,6 +451,22 @@ export const savePerson = (o) => transaction((d) => {
   return person.id;
 });
 
+export const deletePerson = (id) => transaction((d) => {
+  d.people ||= [];
+  const person = d.people.find((entry) => entry.id === id);
+  if (!person) throw Error("Contact no longer exists. Reload and try again.");
+  const customer = d.customers.find((entry) => entry.personId === id);
+  const vendor = d.vendors.find((entry) => entry.personId === id);
+  const hasSales = customer && [...d.invoices, ...d.quotes].some((entry) => entry.customerId === customer.id);
+  const hasPurchases = vendor && d.purchases.some((entry) => entry.vendorId === vendor.id);
+  if (hasSales || hasPurchases)
+    throw Error("This contact is linked to sales or purchases and cannot be deleted. Keep it to preserve history.");
+  d.customers = d.customers.filter((entry) => entry.personId !== id);
+  d.vendors = d.vendors.filter((entry) => entry.personId !== id);
+  d.people = d.people.filter((entry) => entry.id !== id);
+  audit(d, "Contact deleted", person.name, id);
+});
+
 export const saveMaster = (type, o) =>
   transaction((d) => saveMasterIn(d, type, o));
 function saveMasterIn(d, type, input) {
@@ -470,9 +486,13 @@ function saveMasterIn(d, type, input) {
     )
   )
     throw Error(`Duplicate ${key}: ${keyValue}`);
+  const barcode = String(o.barcode || "").trim();
+  if (type === "products" && barcode && d.products.some((x) =>
+    x.id !== o.id && String(x.barcode || "").trim().toLowerCase() === barcode.toLowerCase()))
+    throw Error(`Duplicate barcode: ${barcode}`);
   const allowed =
     type === "products"
-      ? ["sku", "unit"]
+      ? ["sku", "unit", "barcode", "image"]
       : ["contact", "phone", "email", "address", "notes"];
   const x = { ...(existing || {}), id: existing?.id || uid(type[0]), name };
   for (const k of allowed) x[k] = String(o[k] || "").trim();
@@ -758,13 +778,19 @@ export const saveReturn = (o) =>
 export const saveExpense = (o) =>
   transaction((d) => {
     dateValue(o.date);
-    const amount = number(o.amount, "Total expense", 0.01),
-      tax = number(o.tax || 0, "Included HST", 0, amount);
+    const amount = number(o.amount, "Total expense", 0.01);
+    const taxRate = o.taxRate == null || String(o.taxRate).trim() === ""
+      ? null
+      : percentage(o.taxRate, "Tax rate");
+    const tax = taxRate == null
+      ? number(o.tax || 0, "Included tax", 0, amount)
+      : number(round(amount * taxRate / (100 + taxRate)), "Included tax", 0, amount);
     d.expenses.push({
       id: uid("e"),
       date: o.date,
       amount,
       tax,
+      ...(taxRate == null ? {} : { taxRate, taxLabel: String(o.taxLabel || d.settings.taxLabel || "HST").trim() || "HST" }),
       category: textValue(o.category, "Category"),
       payee: textValue(o.payee, "Payee"),
       method: String(o.method || ""),
@@ -890,7 +916,7 @@ export const saveSaleDeal = (o, lines) => transaction((d) => {
   const preset = o.paymentPreset || "full";
   let amount = preset === "unpaid" ? 0 : preset === "partial" ? number(o.paymentAmount || 0, "Payment", 0) : i.total;
   if (amount > 0) {
-    d.payments.push({ id: uid("pay"), invoiceId: i.id, date: o.paymentDate || o.date, amount: round(amount), method: String(o.paymentMethod || "Cash"), reference: String(o.paymentReference || ""), notes: "Recorded with sale" });
+    d.payments.push({ id: uid("pay"), invoiceId: i.id, date: o.paymentDate || o.date, amount: round(amount), method: String(o.paymentMethod || "Cash"), reference: String(o.paymentReference || i.number), notes: "Recorded with sale" });
     audit(d, "Payment recorded", `${i.number}: ${round(amount)}`, i.id);
   }
   audit(d, "Sale saved", `${i.number} · ${customer.name}`, i.id);
@@ -929,9 +955,7 @@ export const savePurchaseDeal = (o, lines) => transaction((d) => {
 export const convertQuoteToSale = (id) => transaction((d) => {
   const q = find(d, "quotes", id);
   if (q.status === "Converted") throw Error("Quote already converted.");
-  const due = new Date();
-  due.setDate(due.getDate() + Number(d.settings.defaultDueDays || 30));
-  const dueDate = `${due.getFullYear()}-${String(due.getMonth()+1).padStart(2,"0")}-${String(due.getDate()).padStart(2,"0")}`;
+  const dueDate = today();
   const i = {
     id: uid("i"), number: nextNumber(d, "invoices"),
     items: structuredClone(q.items || []).map((x) => ({ ...x, lineId: uid("line") })),

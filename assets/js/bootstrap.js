@@ -21,7 +21,7 @@ gate.setAttribute("aria-live", "polite");
 document.body.append(gate);
 
 function gateCard(title, body, buttons = [], extra = "") {
-  gate.innerHTML = `<main class="auth-gate-card"><div class="auth-brand"><b>JK</b><span>JK Database<small>Version 7.2.1 · Cloud edition</small></span></div><h1>${esc(title)}</h1>${body}${extra}<div class="auth-gate-actions">${buttons.map((item) => `<button class="btn ${item.primary ? "primary" : ""}" type="button" data-gate-action="${esc(item.action)}">${esc(item.label)}</button>`).join("")}</div></main>`;
+  gate.innerHTML = `<main class="auth-gate-card"><div class="auth-brand"><b>JK</b><span>JK Database<small>Version 7.2.2 · Cloud edition</small></span></div><h1>${esc(title)}</h1>${body}${extra}<div class="auth-gate-actions">${buttons.map((item) => `<button class="btn ${item.primary ? "primary" : ""}" type="button" data-gate-action="${esc(item.action)}">${esc(item.label)}</button>`).join("")}</div></main>`;
   gate.querySelectorAll("[data-gate-action]").forEach((button) =>
     button.addEventListener("click", () => gateActions[button.dataset.gateAction]?.()),
   );
