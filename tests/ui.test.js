@@ -88,6 +88,9 @@ try {
   });
   await check("sale kiosk searches products, adds tiles once, and scans SKU/barcode into the same line", async () => {
     await page.locator("#newSale").click();
+    assert.equal(await page.locator("#scanForm").evaluate((node) => node.tagName), "DIV");
+    assert.equal(await page.locator('#form [name="taxRate"]').count(), 1);
+    assert.equal(await page.locator('#form [name="paymentPreset"]').count(), 3);
     await page.locator("#catalogSearch").fill("Widget");
     assert.equal(await page.locator("#productCatalog [data-product-id='widget']").count(), 1);
     await page.locator("#productCatalog [data-product-id='widget']").click();

@@ -22,6 +22,12 @@ for (const file of pages) {
   const html = await readFile(resolve(root, file), "utf8");
   const ids = [...html.matchAll(/\bid\s*=\s*["']([^"']+)["']/g)].map((match) => match[1]);
   if (ids.length !== new Set(ids).size) throw Error(`Duplicate IDs in ${file}`);
+  let formOpen = false;
+  for (const tag of html.matchAll(/<\/?form\b[^>]*>/gi)) {
+    if (tag[0][1] === "/") { formOpen = false; continue; }
+    if (formOpen) throw Error(`Nested form in ${file}; browsers will drop form controls from submission.`);
+    formOpen = true;
+  }
   idsByFile.set(resolve(root, file), new Set(ids));
   pageSources.set(file, html);
 }

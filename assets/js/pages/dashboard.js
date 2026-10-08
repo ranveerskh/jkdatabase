@@ -21,6 +21,6 @@ $("due").innerHTML=rows(due.map((x)=>`<p class="statline"><span><b>${esc(x.name)
 $("low").innerHTML=rows(lows.slice(0,8).map((x)=>`<p class="statline"><span>${esc(x.name)}<br><small class="muted">${esc(x.sku||"")}</small></span><b>${esc(x.qty)} ${esc(x.unit||"")}</b></p>`),"Stock levels look good.");
 $("recentPurchases").innerHTML=rows(purchases.slice(-6).reverse().map((x)=>`<p class="statline"><span><b>${esc(x.vendorName)}</b><br><small class="muted">${esc(x.number)} · ${esc(x.date)}</small></span><b>${money(x.total)}</b></p>`),"No purchases yet.");
 const customerCredit=sum(invoices,(i)=>creditBalance(i)),vendorAdv=sum(purchases,(i)=>creditBalance(i,"vendor"));
-$("snapshot").innerHTML=[['People',(db.people||[]).length],['Inventory SKUs',db.products.length],['Customer credits',money(customerCredit)],['Vendor advances',money(vendorAdv)],['Expenses',db.expenses.length],['Version','7.2.2 Cloud']].map(([k,v])=>`<p class="metric">${esc(k)} <b>${esc(v)}</b></p>`).join("");
+$("snapshot").innerHTML=[['People',(db.people||[]).length],['Inventory SKUs',db.products.length],['Customer credits',money(customerCredit)],['Vendor advances',money(vendorAdv)],['Expenses',db.expenses.length],['Version','7.2.3 Cloud']].map(([k,v])=>`<p class="metric">${esc(k)} <b>${esc(v)}</b></p>`).join("");
 
 }

@@ -123,8 +123,7 @@ form.querySelectorAll('input[name="paymentPreset"]').forEach((e) => e.addEventLi
 $("paymentAmount").addEventListener("input", syncPayment);
 $("productCatalog").addEventListener("click", (e) => { const b = e.target.closest("[data-product-id]"); if (b) lines.addOrIncrementProduct(b.dataset.productId); });
 $("catalogSearch").addEventListener("input", renderCatalog);
-$("scanForm").addEventListener("submit", (e) => { e.preventDefault(); addScannedCode($("scanCode").value); $("scanCode").value = ""; $("scanCode").focus(); });
-$("scanCode").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); $("scanForm").requestSubmit(); } });
+$("scanCode").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); addScannedCode(e.currentTarget.value); e.currentTarget.value = ""; e.currentTarget.focus(); } });
 let scannerStream = null, scannerFrame = 0;
 function closeScanner() {
   cancelAnimationFrame(scannerFrame); scannerFrame = 0;
