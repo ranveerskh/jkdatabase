@@ -1,16 +1,17 @@
-# JK Database V7.0.1 Local — verification report
+# JK Database V7.2.0 Cloud — verification report
 
 ## Automated business-logic suite
 
-`npm test` passes **41/41** tests.
+`npm test` passes **45/45 tests**: 41 existing business-flow tests plus four cloud-sync
+tests.
 
 Coverage includes:
 - posted sale tax, stock ledger and cost snapshots
 - combined stock validation and atomic rollback
-- drafts/finalisation/duplication/void protection
+- drafts, finalisation, duplication and void protection
 - linked-payment safeguards
-- purchase stock reversal and duplicate vendor bill checks
-- returns, proportional discount/HST credits and refunds
+- purchase stock reversal and duplicate vendor-bill checks
+- returns, proportional discount/tax credits and refunds
 - customer overpayments/credits and vendor advances
 - manual stock adjustments and deletion protection
 - atomic CSV import, unique IDs and stock ledger creation
@@ -18,34 +19,43 @@ Coverage includes:
 - statement/report calculations and penny allocation
 - stale-tab write rejection
 - backup validation/roundtrip and legacy reconciliation
-- V7 one-save Sale flow: auto People/customer/payment/stock
+- V7 one-save Sale flow: automatic People/customer/payment/stock
 - V7 Quote flow: no stock/payment until conversion
 - V7 one-save Purchase flow with partial payment
 - V6 to V7 People migration without changing document totals
 - same identity reused across customer/vendor roles
 - unsafe CSV formula-prefix rejection with full import rollback
-- 0%, custom and historical invoice tax snapshots; both quote conversion flows and returns preserve original tax
-- controlled final invoice edits reverse/repost stock, retain audit snapshots, and roll back if stock is insufficient
-- final invoice editing is blocked when linked payments or returns exist
-- customer and product edits remain available while linked-record deletion stays guarded
+- custom and historical invoice tax snapshots; quote conversion and returns preserve tax
+- controlled final invoice edits reverse/repost stock and retain audit snapshots
+- final invoice edit protection when linked payments or returns exist
+- customer/product edits and guarded linked-record deletion
+- Firestore record roundtrip, cloud record diffs, document ID validation and size limits
+- Firestore per-transaction write limit guard
 
-## Static application checks
+## Static application and Netlify checks
 
 - Every JavaScript source file passes `node --check`.
-- 21 HTML pages were parsed for duplicate IDs and broken local script/style/page links: **PASS**.
-- Main daily navigation is limited to Home, Sales, Purchases, People, Products / Inventory,
-  Expenses, Reports and Settings; legacy/technical pages remain available for advanced/backward workflows.
+- All 22 HTML pages (including the new login page) passed duplicate-ID and local-link checks.
+- `npm run build` creates the static Netlify site in `dist/`.
+- `netlify.toml` routes `/admin` to the administrator sign-in page.
+- `git diff --check` passes.
 
-## Browser and print visual note
+## Firebase setup state
 
-Work Browser policy blocks local `file:` navigation, and this sandbox does not allow binding a
-local HTTP server. Desktop/mobile browser screenshots and rendered Print / Save PDF comparison
-could not be completed in this environment. The invoice markup and print CSS were reviewed against
-the supplied reference, and the automated business-logic and static page/link checks passed.
+- Email/password sign-in is implemented with Firebase Authentication.
+- Firestore documents are scoped under `businesses/jkdatabase-main` and require an
+  administrator membership document checked by Firestore Security Rules.
+- `firestore.rules` denies client writes to membership documents; the owner provisions
+  the first admin from the Firebase Console.
+- Cloud saves write changed records plus the business revision in one transaction. A
+  stale device is rejected and must reload before saving.
+- Live sign-in and Firestore transactions require the owner's Auth account, membership
+  document and deployed Firestore rules; those project-console steps were not run here.
 
 ## Data compatibility
 
-V7 uses `jkDatabaseV7` and retains V6 as a migration source. Existing V6 data is not overwritten by
-the package. Migration creates unified People links while preserving historical document totals.
+V7 keeps `jkDatabaseV7` as the browser recovery/migration source. The first cloud setup
+can import normalized V7/V6 data without deleting the browser copy. Existing V6 data is
+not silently replaced, and migration preserves historical document totals.
 
-Build: `7.0.1-local`
+Build: `7.2.0-cloud`

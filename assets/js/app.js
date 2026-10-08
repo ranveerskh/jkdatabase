@@ -166,7 +166,7 @@ function boot() {
     ["MAIN", [["Home", "index.html"], ["Sales", "sales.html"], ["Purchases", "purchases.html"], ["People", "people.html"], ["Products / Inventory", "inventory.html"], ["Expenses", "expenses.html"], ["Reports", "reports.html"], ["Settings", "settings.html"]]],
   ];
   document.querySelector(".sidebar").innerHTML =
-    '<div class="brand"><b>JK</b>JK Database<small>Version 7 · Local Edition</small></div><nav class="nav">' +
+    '<div class="brand"><b>JK</b>JK Database<small>Version 7.2 · Cloud edition</small></div><nav class="nav">' +
     groups
       .map(
         ([label, links]) =>

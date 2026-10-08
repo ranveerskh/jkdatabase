@@ -1,16 +1,38 @@
-JK Database V7 Local
-====================
+JK Database V7.2 Cloud Edition
+==============================
 
 What V7 is
 ----------
-JK Database V7 is an offline/local browser business app built around one rule:
+JK Database V7.2 is a Firebase-authenticated business app built around one rule:
 enter the deal once, then let the app update the related customer/vendor, document,
 payment, balance, stock ledger, audit history and dashboard automatically.
 
 Start
 -----
-Windows: run START-WINDOWS.cmd, or serve this folder with any simple local web server
-and open index.html through that server.
+Open the Netlify site at /admin (or /login.html) and sign in with the user created in
+Firebase Authentication. For local development, run START-WINDOWS.cmd and open
+http://localhost:8000/admin. Login requires a network connection to Firebase.
+
+First-time Firebase setup
+-------------------------
+1. Firebase Console > Authentication > Sign-in method: enable Email/Password. Create
+   the administrator user there; this app does not expose public account creation.
+   Authentication > Settings > Authorized domains: add the Netlify site's host name.
+   Add localhost only if using the optional local-development server.
+2. Firebase Console > Firestore > Rules: publish the rules in firestore.rules. The
+   app denies data access until these rules and an administrator membership are active.
+   With Firebase CLI, run: firebase deploy --only firestore:rules --project jkdatabase-35a49
+3. Firebase Console > Firestore > Data: create the document
+   businesses/jkdatabase-main/members/YOUR_AUTH_UID. Set fields role (string) = admin
+   and active (boolean) = true. Copy YOUR_AUTH_UID from Authentication > Users. The
+   user document is provisioned through the Firebase Console, not by client code.
+4. Deploy the repository's main branch to Netlify. The included build copies the static
+   app into dist, and netlify.toml routes /admin to the sign-in page.
+5. Sign in. On the first visit, choose to import this browser's existing V7/V6 data or
+   start a new cloud business. The browser database is retained as a recovery copy.
+
+Each additional administrator must have their own Auth account and membership document.
+This release grants the admin role only; Manager/Employee permissions are not enabled.
 
 Daily menu
 ----------
@@ -70,7 +92,7 @@ exists, older data is not silently resurrected.
 Backups and safety
 ------------------
 Settings > Data tools can download and restore backups. Restore validates data before
-commit. Transactions are atomic, duplicate/stale saves are guarded, invalid CSV imports
+commit. Cloud transactions are atomic, duplicate/stale saves are guarded, invalid CSV imports
 roll back fully, formula-style CSV values are rejected, posted financial history is
 protected, and linked products/documents cannot be casually deleted.
 
@@ -91,10 +113,25 @@ Advanced tools
 Stock Ledger, Customer/Vendor Statements, Audit Log, CSV tools and recovery functions
 are kept under Settings/advanced workflows instead of crowding the main daily menu.
 
-Future cloud path
------------------
-The local app is structured so the business flow can later be backed by Firebase Auth,
-Firestore, Storage, multi-user roles, multi-device sync, cloud backup and subscriptions
-without redesigning the daily Sale/Purchase forms.
+Cloud data and sync
+-------------------
+Each business is isolated below businesses/{businessId}. V7 records are stored as
+individual Firestore documents, with Settings and the current revision in state/current.
+Every save updates changed records and the revision in one Firestore transaction. If a
+different device saves first, the stale page is blocked and must reload before saving.
+After a change on another device, reload to read its latest data. Firestore writes are
+limited to 498 changed records per save; large CSV imports or restores must be split.
+The Firebase client config is public web-app configuration; Firestore Security Rules
+require a signed-in UID with an active administrator membership for business data.
 
-Version: 7.0.1-local
+Netlify
+-------
+Connect the GitHub repository's main branch to Netlify. The included netlify.toml runs
+`npm run build` and publishes `dist`. The /admin route opens administrator sign-in.
+
+Not in this release
+-------------------
+Firebase Storage for uploaded files, Manager/Employee roles, real-time live update
+listeners, server-backed audit history and subscription billing are not enabled yet.
+
+Version: 7.2.0-cloud

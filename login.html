@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+    <meta name="theme-color" content="#0b1220" />
+    <title>Administrator sign in | JK Database</title>
+    <link rel="stylesheet" href="assets/css/style.css" />
+    <link rel="stylesheet" href="assets/css/auth.css" />
+  </head>
+  <body class="auth-body">
+    <main class="auth-card" aria-labelledby="loginTitle">
+      <div class="auth-brand"><b>JK</b><span>JK Database<small>Business management</small></span></div>
+      <h1 id="loginTitle">Administrator sign in</h1>
+      <p class="auth-intro">Sign in with the email and password created in Firebase Authentication.</p>
+      <form id="loginForm" class="auth-form">
+        <label class="field"><span>Email</span><input name="email" type="email" autocomplete="username" required /></label>
+        <label class="field"><span>Password</span><input name="password" type="password" autocomplete="current-password" required /></label>
+        <button class="btn primary" type="submit" id="signInButton">Sign in</button>
+      </form>
+      <button class="auth-link" type="button" id="resetPassword">Forgot password?</button>
+      <p id="authMessage" class="auth-message" role="status" aria-live="polite"></p>
+      <p class="auth-footnote">Accounts are created and assigned administrator access by the business owner.</p>
+    </main>
+    <script type="module" src="assets/js/login.js"></script>
+  </body>
+</html>

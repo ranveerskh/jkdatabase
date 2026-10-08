@@ -1,0 +1,33 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isBusinessAdmin(businessId) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/businesses/$(businessId)/members/$(request.auth.uid))
+        && get(/databases/$(database)/documents/businesses/$(businessId)/members/$(request.auth.uid)).data.role == 'admin'
+        && get(/databases/$(database)/documents/businesses/$(businessId)/members/$(request.auth.uid)).data.active == true;
+    }
+
+    match /businesses/{businessId}/members/{memberId} {
+      allow get: if signedIn() && request.auth.uid == memberId;
+      allow list, create, update, delete: if false;
+    }
+
+    match /businesses/{businessId}/state/{stateId} {
+      allow read, write: if isBusinessAdmin(businessId)
+        && stateId in ['current', 'setup'];
+    }
+
+    match /businesses/{businessId}/records/{recordId} {
+      allow read, write: if isBusinessAdmin(businessId);
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
