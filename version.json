@@ -1,1 +1,6 @@
-{"name":"JK Database","version":"7.2.0","build":"7.2.0-cloud","channel":"main"}
+{
+  "name": "JK Database",
+  "version": "7.2.1",
+  "build": "7.2.1-cloud",
+  "channel": "main"
+}

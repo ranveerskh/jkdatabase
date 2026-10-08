@@ -16,6 +16,8 @@ import {
   convertQuote,
   deleteRecord,
 } from "../services/business-service.js";
+
+export function initPage({ signal } = {}) {
 $("customer").innerHTML =
   option("", "Walk-in / manual") +
   db.customers.map((c) => option(c.id, c.name)).join("");
@@ -41,3 +43,5 @@ actions($("list"), {
   },
 });
 submit($("form"), saveQuote);
+
+}

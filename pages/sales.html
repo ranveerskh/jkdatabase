@@ -23,7 +23,7 @@
 
     <dialog id="dlg" class="deal-dialog">
       <form id="form" class="deal-form">
-        <div class="deal-header"><h2 id="modalTitle">New Sale</h2><p class="hint" id="dealHint">Enter the deal once. Invoice, stock, payment and customer balance update together.</p></div>
+        <div class="deal-header"><h2 id="modalTitle">New Sale</h2><p class="hint" id="dealHint">Create an invoice and record the customer payment in one step.</p></div>
         <div class="deal-body">
           <section class="form-section">
             <h3>1. Customer</h3>
@@ -34,7 +34,7 @@
               <div class="field"><label>Email</label><input name="email" id="customerEmail" type="email" /></div>
               <div class="field"><label>Billing address</label><input name="address" id="customerAddress" /></div>
             </div>
-            <p class="inline-note" id="customerMessage">New customer — save karde hi automatically add ho jayega.</p>
+            <p class="inline-note" id="customerMessage">This customer will be created when you save.</p>
           </section>
 
           <section class="form-section">
@@ -50,17 +50,17 @@
             <div class="formgrid">
               <div class="field"><label id="dateLabel">Sale date</label><input name="date" id="date" type="date" required /></div>
               <div class="field" id="dueWrap"><label>Payment due date</label><input name="dueDate" id="dueDate" type="date" required /></div>
-              <div class="field" id="validWrap" hidden><label>Valid until</label><input name="validUntil" id="validUntil" type="date" /></div>
+              <div class="field" id="validWrap" hidden><label>Quote expiry date</label><input name="validUntil" id="validUntil" type="date" /></div>
               <div class="field full"><label>Notes</label><input name="notes" id="notes" /></div>
             </div>
           </section>
 
           <section class="form-section">
             <h3>4. Items</h3>
-            <p class="section-help">Select an inventory product or use a custom line. Duplicate product lines are stock-checked together.</p>
-            <div class="line-labels"><span>Product</span><span>Qty</span><span>Price</span><span>Description</span><span></span></div>
+            <p class="section-help">Choose a product and enter the quantity. Custom items do not change inventory.</p>
+
             <div id="rows"></div>
-            <div class="actions"><button type="button" class="btn" id="addRow">+ Add Item</button><button type="button" class="btn" id="quickProduct">+ Add Product</button></div>
+            <div class="actions"><button type="button" class="btn" id="addRow">+ Add line</button><button type="button" class="btn" id="quickProduct">+ Create product</button></div>
             <div class="tax-discount-row"><div class="field"><label>Discount</label><input name="discount" type="number" step=".01" min="0" value="0" /></div><div class="field"><label>Tax name</label><input name="taxLabel" maxlength="50" required /></div><div class="field"><label>Tax rate (%)</label><input name="taxRate" type="number" min="0" max="100" step="any" required /></div></div>
             <p class="section-help">The default comes from Settings. This rate and tax name are saved with this sale or quote.</p>
             <div class="totals"><div><span>Subtotal</span><b id="sub">$0.00</b></div><div><span>Discount</span><b id="disc">$0.00</b></div><div><span id="taxTitle">HST</span><b id="tax">$0.00</b></div><div class="grand"><span>Grand total</span><span id="total">$0.00</span></div></div>
@@ -97,9 +97,9 @@
     </dialog>
 
     <dialog id="productDlg">
-      <form id="productForm" class="modal">
-        <h2>Quick Add Product</h2><p class="hint">Product saves to Inventory and becomes available in this deal immediately.</p>
-        <div class="formgrid"><div class="field"><label>Product name</label><input name="name" required /></div><div class="field"><label>SKU</label><input name="sku" /></div><div class="field"><label>Opening quantity</label><input name="qty" type="number" step=".01" value="0" /></div><div class="field"><label>Unit</label><input name="unit" /></div><div class="field"><label>Cost</label><input name="cost" type="number" step=".01" value="0" /></div><div class="field"><label>Selling price</label><input name="price" type="number" step=".01" value="0" /></div><div class="field"><label>Low-stock level</label><input name="low" type="number" step=".01" value="0" /></div></div>
+      <form id="productForm" class="modal"><datalist id="productUnits"><option value="pcs"></option><option value="box"></option><option value="kg"></option><option value="litre"></option><option value="metre"></option></datalist>
+        <h2>Create inventory product</h2><p class="hint">The new product will be selected in this transaction. Stock on hand is the quantity available before this sale.</p>
+        <div class="formgrid"><div class="field"><label>Product name</label><input name="name" required /></div><div class="field"><label>SKU</label><input name="sku" /></div><div class="field"><label>Stock already on hand</label><input name="qty" type="number" step=".01" value="0" /></div><div class="field"><label>Unit of measure</label><input name="unit" list="productUnits" value="pcs" placeholder="e.g. pcs, kg, box" maxlength="50" /></div><div class="field"><label>Cost per unit</label><input name="cost" type="number" step=".01" value="0" /></div><div class="field"><label>Selling price per unit</label><input name="price" type="number" step=".01" value="0" /></div><div class="field"><label>Low-stock level</label><input name="low" type="number" step=".01" value="0" /></div></div>
         <div class="footer"><button type="button" class="btn" id="productCancel">Cancel</button><button class="btn primary">Save Product</button></div>
       </form>
     </dialog>

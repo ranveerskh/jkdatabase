@@ -15,6 +15,8 @@ import {
 } from "../app.js";
 import { localDate } from "../core/utils.js";
 import { report } from "../services/report-service.js";
+
+export function initPage({ signal } = {}) {
 const stat = (k, v) =>
   `<div class="statline"><span>${esc(k)}</span><b>${v == null ? "Cost unavailable" : money(v)}</b></div>`;
 const grouped = (m) =>
@@ -94,3 +96,5 @@ document.querySelectorAll("[data-days]").forEach((b) =>
   }),
 );
 render();
+
+}

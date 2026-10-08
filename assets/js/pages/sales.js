@@ -1,12 +1,13 @@
-import { $, db, esc, money, actions, today, toast, invoiceBalance, invoiceStatus, customerPaid, creditBalance } from "../app.js";
-import { saveSaleDeal, savePayment, voidDocument, saveMaster, convertQuoteToSale, finaliseInvoice, deleteRecord, duplicateInvoice, invoiceEditBlockReason } from "../services/business-service.js";
-import { printInvoice } from "../services/print-service.js";
+import { $, db, esc, money, actions, today, toast, invoiceBalance, invoiceStatus, customerPaid, creditBalance, refreshPage, navigateTo } from "../app.js";
+import { saveSaleDeal, savePayment, voidDocument, saveMaster, convertQuoteToSale, finaliseInvoice, deleteRecord, duplicateInvoice, invoiceEditBlockReason, documentCancelBlockReason } from "../services/business-service.js";
+import { printInvoice, openPrintWindow } from "../services/print-service.js";
 import { lineEditor } from "./line-editor.js";
 
+export function initPage({ signal } = {}) {
 const form = $("form"), dlg = $("dlg"), paymentForm = $("paymentForm");
 let currentTotal = 0, activeFilter = "all";
 const addDays = (iso, days) => { const d = new Date(iso + "T12:00:00"); d.setDate(d.getDate() + Number(days || 0)); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
-const lines = lineEditor(false, { onTotals: (t) => { currentTotal = t.total; syncPayment(); } });
+const lines = lineEditor(false, { onTotals: (t) => { currentTotal = t?.total || 0; syncPayment(); } });
 
 function populateCustomers() {
   $("customerList").innerHTML = db.customers.map((c) => `<option value="${esc(c.name)}" label="${esc([c.phone,c.email].filter(Boolean).join(" · "))}"></option>`).join("");
@@ -22,13 +23,17 @@ function syncCustomer() {
   $("customerId").value = c?.id || "";
   if (c) {
     $("customerPhone").value ||= c.phone || ""; $("customerEmail").value ||= c.email || ""; $("customerAddress").value ||= c.address || "";
-    $("customerMessage").textContent = "Existing customer selected — saved contact details will be linked to this deal.";
-  } else $("customerMessage").textContent = "New customer — save karde hi automatically add ho jayega.";
+    $("customerMessage").textContent = "Existing customer selected. Contact details will be linked to this transaction.";
+  } else $("customerMessage").textContent = "This customer will be created when you save.";
 }
 function dealType() { return form.elements.namedItem("dealType").value; }
 function syncDealType() {
   const quote = dealType() === "quote";
   $("paymentSection").hidden = quote; $("dueWrap").hidden = quote; $("validWrap").hidden = !quote;
+  $("dueDate").disabled = quote;
+  $("validUntil").disabled = !quote;
+  $("validUntil").required = quote;
+  $("paymentSection").querySelectorAll("input,select").forEach((input) => input.disabled = quote);
   $("dateLabel").textContent = quote ? "Quote date" : "Sale date";
   $("modalTitle").textContent = quote ? "New Quote" : "New Sale";
   form.querySelector('button[value="save"]').textContent = quote ? "Save Quote" : "Save Sale";
@@ -46,6 +51,7 @@ function syncPayment() {
 }
 function invoiceActions(x, due) {
   const draft = x.state === "draft",
+    cancelReason = documentCancelBlockReason(db, "invoices", x.id),
     editReason = invoiceEditBlockReason(db, x.id),
     edit = editReason
       ? `<button type="button" class="btn small" disabled title="${esc(editReason)}">Edit</button><small class="record-menu-note">${esc(editReason)}</small>`
@@ -53,13 +59,13 @@ function invoiceActions(x, due) {
     controls = [
       `<button type="button" class="btn small" data-action="preview" data-id="${esc(x.id)}">Preview / Print</button>`,
       draft ? edit : (due > 0 && !x.voided ? `<button type="button" class="btn small primary" data-action="pay" data-id="${esc(x.id)}">Receive Payment</button>` : ""),
-      !draft && !x.voided ? `<button type="button" class="btn small" data-action="return" data-id="${esc(x.id)}">Return Item</button>` : "",
+      !draft && !x.voided ? `<button type="button" class="btn small" data-action="return" data-id="${esc(x.id)}">Return / credit note</button>` : "",
       `<button type="button" class="btn small" data-action="duplicate" data-id="${esc(x.id)}">Duplicate draft</button>`,
       draft
         ? `<button type="button" class="btn small primary" data-action="finalise" data-id="${esc(x.id)}">Finalise</button><button type="button" class="btn small danger" data-action="delete" data-id="${esc(x.id)}">Delete draft</button>`
-        : (!x.voided ? `<button type="button" class="btn small danger" data-action="void" data-id="${esc(x.id)}">Void</button>` : `<small class="record-menu-note">This invoice is voided and retained for history.</small>`),
+        : (!x.voided ? (cancelReason ? `<button type="button" class="btn small danger" disabled>Cancel invoice</button><small class="record-menu-note">${esc(cancelReason)}</small>` : `<button type="button" class="btn small danger" data-action="void" data-id="${esc(x.id)}">Cancel invoice</button>`) : `<small class="record-menu-note">This invoice was cancelled and is retained for history.</small>`),
       !draft ? edit : "",
-      !draft ? `<small class="record-menu-note">Finalised invoices cannot be deleted because stock, balances and reports retain their history. Use Void or a credit note.</small>` : "",
+      !draft ? `<small class="record-menu-note">Finalised invoices are kept for accounting history and cannot be deleted.</small>` : "",
     ].filter(Boolean).join("");
   return `<details class="record-menu"><summary class="btn small" aria-label="Actions for ${esc(x.number)}">Actions <span aria-hidden="true">▾</span></summary><div class="record-menu-panel">${controls}</div></details>`;
 }
@@ -91,14 +97,21 @@ $("paymentAmount").addEventListener("input", syncPayment);
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
   const submitter = e.submitter, buttons = [...form.querySelectorAll("button")]; buttons.forEach((b)=>b.disabled=true);
+  const preview = submitter?.value === "preview" ? openPrintWindow() : null;
+  let saved = false;
   try {
     syncCustomer();
     const o = Object.fromEntries(new FormData(form));
     const result = await saveSaleDeal(o, lines.values());
-    if (submitter?.value === "preview" && result.kind === "invoice") printInvoice(result.id);
+    saved = true;
+    dlg.close(); populateCustomers(); render();
     toast(result.kind === "quote" ? "Quote saved successfully." : "Sale saved successfully.", "ok");
-    location.reload();
-  } catch (err) { toast(err.message); buttons.forEach((b)=>b.disabled=false); }
+    if (submitter?.value === "preview" && result.kind === "invoice") {
+      if (preview) printInvoice(result.id, preview);
+      else toast("Sale saved. Allow pop-ups, then choose Preview / Print from its Actions menu.");
+    }
+  } catch (err) { preview?.close(); toast(saved ? `Sale saved. Preview could not open: ${err.message} Use Preview / Print from Actions; do not save again.` : err.message); }
+  finally { buttons.forEach((b)=>b.disabled=false); }
 });
 
 function render() {
@@ -132,25 +145,27 @@ $("list").addEventListener("click", async (e) => {
   const b=e.target.closest("[data-action]"); if(!b)return; const id=b.dataset.id, action=b.dataset.action;
   try {
     if(action==="preview") printInvoice(id);
-    if(action==="duplicate") { const duplicateId=await duplicateInvoice(id); location.href=`invoices.html?edit=${encodeURIComponent(duplicateId)}`; }
-    if(action==="edit") location.href=`invoices.html?edit=${encodeURIComponent(id)}`;
-    if(action==="return") location.href=`returns.html?invoice=${encodeURIComponent(id)}`;
-    if(action==="finalise" && confirm("Finalise this draft and reduce stock?")){ await finaliseInvoice(id); location.reload(); }
-    if(action==="delete" && confirm("Delete this draft invoice? Finalised invoices are retained for accounting history.")){ await deleteRecord("invoices",id); location.reload(); }
-    if(action==="convert") { if(confirm("Convert this quote to a final sale? Stock will be reduced and the new invoice will start unpaid.")){ const invoiceId=await convertQuoteToSale(id); printInvoice(invoiceId); location.reload(); } }
-    if(action==="void" && confirm("Void this unpaid invoice and restore stock? Linked payments or returns will block this action.")){ await voidDocument("invoices",id); location.reload(); }
+    if(action==="duplicate") { const duplicateId=await duplicateInvoice(id); await navigateTo(`invoices.html?edit=${encodeURIComponent(duplicateId)}`); }
+    if(action==="edit") await navigateTo(`invoices.html?edit=${encodeURIComponent(id)}`);
+    if(action==="return") await navigateTo(`returns.html?invoice=${encodeURIComponent(id)}`);
+    if(action==="finalise" && confirm("Finalise this draft and reduce stock?")){ await finaliseInvoice(id); await refreshPage(); }
+    if(action==="delete" && confirm("Delete this draft invoice? Finalised invoices are retained for accounting history.")){ await deleteRecord("invoices",id); await refreshPage(); }
+    if(action==="convert") { if(confirm("Convert this quote to a sale? Stock will be reduced and the new invoice will start unpaid.")){ const preview = openPrintWindow(); try { const invoiceId=await convertQuoteToSale(id); printInvoice(invoiceId, preview); await refreshPage(); } catch (error) { preview?.close(); throw error; } } }
+    if(action==="void" && confirm("Cancel this unpaid invoice? Its stock will be restored and its outstanding balance removed. The invoice will remain in history.")){ await voidDocument("invoices",id); await refreshPage(); }
     if(action==="pay") {
       const i=db.invoices.find((x)=>x.id===id); paymentForm.reset(); paymentForm.elements.invoiceId.value=id; paymentForm.elements.amount.value=invoiceBalance(i).toFixed(2); paymentForm.elements.date.value=today(); $("paymentDoc").textContent=`${i.number} · ${i.customerName} · Remaining ${money(invoiceBalance(i))}`; $("paymentDlg").showModal();
     }
   } catch(err){ toast(err.message); }
 });
 
-paymentForm.addEventListener("submit", async(e)=>{ e.preventDefault(); const btn=e.submitter; btn.disabled=true; try{ await savePayment("customer",Object.fromEntries(new FormData(paymentForm))); toast("Payment recorded.","ok"); location.reload(); }catch(err){toast(err.message);btn.disabled=false;} });
+paymentForm.addEventListener("submit", async(e)=>{ e.preventDefault(); const btn=e.submitter; btn.disabled=true; try{ await savePayment("customer",Object.fromEntries(new FormData(paymentForm))); toast("Payment recorded.","ok"); await refreshPage(); }catch(err){toast(err.message);btn.disabled=false;} });
 $("paymentCancel").addEventListener("click",()=>$("paymentDlg").close());
 
 $("quickProduct").addEventListener("click",()=>{ $("productForm").reset(); $("productDlg").showModal(); });
 $("productCancel").addEventListener("click",()=>$("productDlg").close());
-$("productForm").addEventListener("submit",async(e)=>{e.preventDefault(); const btn=e.submitter;btn.disabled=true;try{await saveMaster("products",Object.fromEntries(new FormData($("productForm"))));lines.refreshProducts();$("productDlg").close();toast("Product added to Inventory.","ok");}catch(err){toast(err.message);btn.disabled=false;}});
+$("productForm").addEventListener("submit",async(e)=>{e.preventDefault(); const btn=e.submitter;btn.disabled=true;try{const id=await saveMaster("products",Object.fromEntries(new FormData($("productForm"))));$("productDlg").close();lines.useProduct(id);toast("Product created and selected.","ok");}catch(err){toast(err.message);}finally{btn.disabled=false;}});
 
-document.addEventListener("keydown",(e)=>{ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="n"&&!dlg.open){e.preventDefault();openDeal("sale");} });
+document.addEventListener("keydown",(e)=>{ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="n"&&!dlg.open){e.preventDefault();openDeal("sale");} }, { signal });
 render();
+
+}

@@ -11,6 +11,8 @@ import {
   today,
 } from "../app.js";
 import { saveExpense, deleteRecord } from "../services/business-service.js";
+
+export function initPage({ signal } = {}) {
 $("date").value = today();
 $("count").textContent = `${db.expenses.length} expenses`;
 $("list").innerHTML = table(
@@ -40,3 +42,5 @@ actions($("list"), {
 });
 submit($("form"), saveExpense);
 if (new URLSearchParams(location.search).get("new") === "1") $("dlg").showModal();
+
+}

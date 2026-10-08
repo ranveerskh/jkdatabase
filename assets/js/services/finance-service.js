@@ -57,7 +57,7 @@ export const creditBalance = (i, side = "customer", d = db) =>
   Math.max(0, -signedBalance(i, side, d));
 export function status(i, side = "customer", d = db) {
   if (i.state === "draft") return "Draft";
-  if (!posted(i)) return "Void";
+  if (!posted(i)) return "Cancelled";
   const b = signedBalance(i, side, d);
   if (b < 0) return "Credit";
   if (b === 0) return "Paid";

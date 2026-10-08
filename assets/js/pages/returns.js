@@ -10,6 +10,8 @@ import {
   posted,
 } from "../app.js";
 import { saveReturn, returnPreview } from "../services/business-service.js";
+
+export function initPage({ signal } = {}) {
 $("date").value = today();
 $("invoice").innerHTML =
   option("", "Choose invoice") +
@@ -28,7 +30,7 @@ function preview() {
     );
     form.elements.namedItem("amount").value = money(p.amount);
     $("returnHint").textContent =
-      `Includes HST ${money(p.tax)}. Remaining returnable quantity: ${p.remaining}.`;
+      `Includes tax ${money(p.tax)}. Remaining returnable quantity: ${p.remaining}.`;
   } catch (e) {
     form.elements.namedItem("amount").value = "";
     $("returnHint").textContent = e.message;
@@ -52,7 +54,7 @@ $("list").innerHTML = table(
     "Item",
     "Qty",
     "Credit",
-    "HST",
+    "Tax",
     "Restocked",
     "Reason",
   ],
@@ -66,4 +68,10 @@ $("list").innerHTML = table(
 );
 
 const presetInvoice = new URLSearchParams(location.search).get("invoice");
-if (presetInvoice && db.invoices.some((i)=>i.id===presetInvoice)) { $("invoice").value=presetInvoice; $("invoice").dispatchEvent(new Event("change")); }
+if (presetInvoice && db.invoices.some((i)=>i.id===presetInvoice && posted(i))) {
+  $("invoice").value=presetInvoice;
+  $("invoice").dispatchEvent(new Event("change"));
+  $("dlg").showModal();
+}
+
+}

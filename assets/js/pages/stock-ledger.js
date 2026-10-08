@@ -1,5 +1,7 @@
 import { $, db, esc, table, option, submit } from "../app.js";
 import { adjustStock } from "../services/business-service.js";
+
+export function initPage({ signal } = {}) {
 $("product").innerHTML =
   option("", "Choose product") +
   db.products.map((p) => option(p.id, `${p.name} · ${p.qty}`)).join("");
@@ -19,3 +21,5 @@ $("list").innerHTML = table(
   ),
 );
 submit($("form"), adjustStock);
+
+}

@@ -21,7 +21,7 @@ gate.setAttribute("aria-live", "polite");
 document.body.append(gate);
 
 function gateCard(title, body, buttons = [], extra = "") {
-  gate.innerHTML = `<main class="auth-gate-card"><div class="auth-brand"><b>JK</b><span>JK Database<small>Version 7.2 · Cloud edition</small></span></div><h1>${esc(title)}</h1>${body}${extra}<div class="auth-gate-actions">${buttons.map((item) => `<button class="btn ${item.primary ? "primary" : ""}" type="button" data-gate-action="${esc(item.action)}">${esc(item.label)}</button>`).join("")}</div></main>`;
+  gate.innerHTML = `<main class="auth-gate-card"><div class="auth-brand"><b>JK</b><span>JK Database<small>Version 7.2.1 · Cloud edition</small></span></div><h1>${esc(title)}</h1>${body}${extra}<div class="auth-gate-actions">${buttons.map((item) => `<button class="btn ${item.primary ? "primary" : ""}" type="button" data-gate-action="${esc(item.action)}">${esc(item.label)}</button>`).join("")}</div></main>`;
   gate.querySelectorAll("[data-gate-action]").forEach((button) =>
     button.addEventListener("click", () => gateActions[button.dataset.gateAction]?.()),
   );
@@ -124,20 +124,13 @@ async function openForAdmin(user) {
       document.querySelector("main")?.prepend(notice);
     };
     window.addEventListener("jk-cloud-cache-error", showCacheWarning);
-    await import(new URL(`./${entryName}`, import.meta.url));
+    const { startPages } = await import("./services/page-router.js");
+    await startPages({ entryName, user, loginUrl, showCacheWarning, localCacheReady });
     gate.remove();
-    if (!localCacheReady) showCacheWarning();
-    const topbar = document.querySelector(".topbar");
-    if (topbar) {
-      const account = document.createElement("div");
-      account.className = "auth-user";
-      account.innerHTML = `<span title="${esc(user.email || "Administrator")}">${esc(user.email || "Administrator")}</span><button class="btn" type="button">Sign out</button>`;
-      account.querySelector("button").addEventListener("click", async () => {
-        await firebaseAuth.signOut(auth);
+    firebaseAuth.onAuthStateChanged(auth, (current) => {
+      if (!current || current.uid !== user.uid)
         location.replace(loginUrl.href + `?next=${encodeURIComponent(location.pathname + location.search)}`);
-      });
-      topbar.append(account);
-    }
+    });
   } catch (error) {
     gateCard("Could not open cloud data", `<p>${esc(error.message || "The Firestore data could not be loaded.")}</p><p>Check the Firestore rules, network connection, and business membership, then reload.</p>`, [
       { action: "reload", label: "Reload", primary: true },

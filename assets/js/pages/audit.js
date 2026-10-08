@@ -1,5 +1,6 @@
 import { $, db, esc, table } from "../app.js";
 
+export function initPage({ signal } = {}) {
 const invoiceRevision = (invoice) => {
   if (!invoice) return "No snapshot";
   const lines = (invoice.items || []).map((item) => `${item.description || "Item"} · ${item.qty} × ${item.price}`).join("\n") || "No line items";
@@ -15,3 +16,5 @@ $("list").innerHTML = table(
     return `<tr><td>${esc(new Date(x.at).toLocaleString())}</td><td>${esc(x.action)}</td><td>${esc(x.detail)}${revision}</td></tr>`;
   }),
 );
+
+}

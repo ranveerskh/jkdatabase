@@ -1,4 +1,6 @@
 import { $, db, money, sum, esc, today, posted, invoiceBalance, purchaseBalance, creditBalance } from "../app.js";
+
+export function initPage({ signal } = {}) {
 const invoices=db.invoices.filter(posted),purchases=db.purchases.filter(posted),now=today(),month=now.slice(0,7);
 const netSales=(list)=>sum(list,(x)=>Number(x.subtotal||0)-Number(x.discount||0));
 const todaySales=netSales(invoices.filter((x)=>x.date===now)),monthSales=netSales(invoices.filter((x)=>String(x.date).startsWith(month)));
@@ -20,3 +22,5 @@ $("low").innerHTML=rows(lows.slice(0,8).map((x)=>`<p class="statline"><span>${es
 $("recentPurchases").innerHTML=rows(purchases.slice(-6).reverse().map((x)=>`<p class="statline"><span><b>${esc(x.vendorName)}</b><br><small class="muted">${esc(x.number)} · ${esc(x.date)}</small></span><b>${money(x.total)}</b></p>`),"No purchases yet.");
 const customerCredit=sum(invoices,(i)=>creditBalance(i)),vendorAdv=sum(purchases,(i)=>creditBalance(i,"vendor"));
 $("snapshot").innerHTML=[['People',(db.people||[]).length],['Inventory SKUs',db.products.length],['Customer credits',money(customerCredit)],['Vendor advances',money(vendorAdv)],['Expenses',db.expenses.length],['Version','7 Local']].map(([k,v])=>`<p class="metric">${esc(k)} <b>${esc(v)}</b></p>`).join("");
+
+}

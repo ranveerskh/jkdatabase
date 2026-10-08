@@ -15,7 +15,7 @@ export function masterPage(type) {
   const singular = {
     customers: "Customer",
     vendors: "Vendor",
-    products: "Item",
+    products: "Product",
   }[type];
   function open(x) {
     form.reset();
@@ -34,7 +34,7 @@ export function masterPage(type) {
   $("count").textContent = `${db[type].length} records`;
   const headers =
     type === "products"
-      ? ["SKU", "Item", "On hand", "Standard cost", "Sell", "Status", ""]
+      ? ["SKU", "Product", "Quantity / unit", "Cost per unit", "Price per unit", "Status", ""]
       : ["Name", "Contact", "Phone", "Email", ""];
   $("list").innerHTML = table(
     headers,
@@ -42,7 +42,7 @@ export function masterPage(type) {
       (x) =>
         "<tr>" +
         (type === "products"
-          ? `<td>${esc(x.sku)}</td><td>${esc(x.name)}</td><td>${esc(x.qty)}</td><td>${money(x.cost)}</td><td>${money(x.price)}</td><td>${Number(x.qty) <= Number(x.low ?? db.settings.lowStockDefault) ? "Low stock" : "In stock"}</td>`
+          ? `<td>${esc(x.sku)}</td><td>${esc(x.name)}</td><td>${esc(x.qty)} ${esc(x.unit || "pcs")}</td><td>${money(x.cost)}</td><td>${money(x.price)}</td><td>${Number(x.qty) <= Number(x.low ?? db.settings.lowStockDefault) ? "Low stock" : "In stock"}</td>`
           : `<td>${esc(x.name)}</td><td>${esc(x.contact)}</td><td>${esc(x.phone)}</td><td>${esc(x.email)}</td>`) +
         `<td>${button("Edit", "edit", x.id)} ${button("Delete", "delete", x.id, "danger")}</td></tr>`,
     ),

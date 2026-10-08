@@ -1,6 +1,8 @@
 import { db, loadError } from "./repositories/db.js";
 import { DB_KEY, LEGACY_KEYS } from "./core/config.js";
 import { esc, today, download, csvParse, sum } from "./core/utils.js";
+import { refreshPage } from "./services/navigation.js";
+export { refreshPage, navigateTo } from "./services/navigation.js";
 export { db, loadError, esc, today, download, csvParse, sum };
 export * from "./services/finance-service.js";
 export const $ = (id) => document.getElementById(id);
@@ -32,7 +34,7 @@ export function toast(msg, type = "err") {
 export async function run(fn, { reload = true } = {}) {
   try {
     const result = await fn();
-    if (reload) location.reload();
+    if (reload) await refreshPage();
     return result;
   } catch (e) {
     toast(e.message);
@@ -159,14 +161,15 @@ export function creditsUI(side, container) {
     },
   );
 }
-function boot() {
+let shellReady = false;
+export function boot() {
   const root = new URL("../../", import.meta.url),
     page = location.pathname.split("/").pop() || "index.html";
   const groups = [
     ["MAIN", [["Home", "index.html"], ["Sales", "sales.html"], ["Purchases", "purchases.html"], ["People", "people.html"], ["Products / Inventory", "inventory.html"], ["Expenses", "expenses.html"], ["Reports", "reports.html"], ["Settings", "settings.html"]]],
   ];
   document.querySelector(".sidebar").innerHTML =
-    '<div class="brand"><b>JK</b>JK Database<small>Version 7.2 · Cloud edition</small></div><nav class="nav">' +
+    '<div class="brand"><b>JK</b>JK Database<small>Version 7.2.1 · Cloud edition</small></div><nav class="nav">' +
     groups
       .map(
         ([label, links]) =>
@@ -180,6 +183,7 @@ function boot() {
       )
       .join("") +
     "</nav>";
+  if (!shellReady) {
   const menuButton = document.createElement("button");
   menuButton.type = "button";
   menuButton.className = "mobile-menu-btn";
@@ -192,7 +196,17 @@ function boot() {
   const closeMenu = () => document.body.classList.remove("menu-open");
   menuButton.addEventListener("click", () => document.body.classList.toggle("menu-open"));
   shade.addEventListener("click", closeMenu);
-  sidebar.querySelectorAll("a").forEach((a) => a.addEventListener("click", closeMenu));
+  sidebar.addEventListener("click", (event) => { if (event.target.closest("a")) closeMenu(); });
+  window.addEventListener("storage", (event) => {
+    if (event.key === DB_KEY || event.key === null) {
+      const notice = document.createElement("div");
+      notice.className = "notice";
+      notice.textContent = "Data changed in another tab. Reload before saving. Unsaved form entries are still on this page.";
+      document.querySelector("main.content")?.prepend(notice);
+    }
+  });
+  shellReady = true;
+  }
   const banner = (msg) => {
     const e = document.createElement("div");
     e.className = "notice";
@@ -206,12 +220,6 @@ function boot() {
     banner(
       "Saving is unavailable here. Open this app at HTTPS or http://localhost using a modern browser.",
     );
-  window.addEventListener("storage", (e) => {
-    if (e.key === DB_KEY || e.key === null)
-      banner(
-        "Data changed in another tab. Reload before saving. Unsaved form entries are still on this page.",
-      );
-  });
   document.querySelectorAll("[data-click]").forEach((b) => {
     b.addEventListener("click", () => {
       const a = b.dataset.click;
@@ -243,4 +251,3 @@ function boot() {
   });
   searchTable();
 }
-boot();

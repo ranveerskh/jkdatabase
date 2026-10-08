@@ -27,6 +27,22 @@ const line = (qty = 1) => [
 ];
 const sale = async (qty = 1, post = true) =>
   B.saveInvoice(input(), line(qty), post);
+const printService = await import("../assets/js/services/print-service.js");
+function previewWindow() {
+  let html = "", printHandler, prints = 0;
+  return {
+    document: {
+      open: () => { html = ""; },
+      write: (value) => { html += value; },
+      close: () => {},
+      getElementById: () => ({ addEventListener: (_event, callback) => { printHandler = callback; } }),
+    },
+    print: () => { prints++; },
+    get html() { return html; },
+    get prints() { return prints; },
+    clickPrint: () => printHandler(),
+  };
+}
 beforeEach(async () => {
   failWrites = false;
   await repo.replaceDB(storage.blankDB());
@@ -51,6 +67,45 @@ test("finalised sale has rounded tax, stock ledger and cost snapshot", async () 
   assert.equal(repo.db.products[0].qty, 8);
   assert.equal(i.items[0].unitCost, 4);
   assert.equal(repo.db.stockLedger[0].reference, i.number);
+});
+test("invoice preview renders stored tax, units and payment/return balance instead of stalling", async () => {
+  const id = await B.saveInvoice({ ...input(), taxRate: 5, taxLabel: "GST" }, [{ ...line(2)[0], unit: "box" }], true);
+  await B.savePayment("customer", { invoiceId: id, amount: 5, date, method: "Cash" });
+  await B.saveReturn({ invoiceId: id, lineId: repo.db.invoices[0].items[0].lineId, qty: 1, date, restock: "yes", reason: "Return" });
+  const window = previewWindow();
+  assert.equal(printService.printInvoice(id, window), window);
+  assert.match(window.html, /<h1>INVOICE<\/h1>/);
+  assert.match(window.html, /GST \(5%\)/);
+  assert.match(window.html, /2 box/);
+  assert.match(window.html, /Amount Due<\/b><strong>\$5\.50/);
+  assert.doesNotMatch(window.html, /Preparing document|Pay Online/);
+  window.clickPrint();
+  assert.equal(window.prints, 1);
+});
+test("invoice and quote units stay stored after a product unit changes and through backup", async () => {
+  await B.saveMaster("products", { ...repo.db.products[0], unit: "kg" });
+  const quote = await B.saveSaleDeal({ dealType: "quote", customerId: c, date, validUntil: date, taxRate: 0 }, line(2));
+  await B.saveMaster("products", { ...repo.db.products[0], unit: "box" });
+  const id = await B.convertQuoteToSale(quote.id);
+  assert.equal(repo.db.invoices.find((i) => i.id === id).items[0].unit, "kg");
+  assert.equal(repo.db.products[0].qty, 8);
+  const restored = storage.normalize(JSON.parse(JSON.stringify(repo.db)));
+  assert.equal(restored.invoices.find((i) => i.id === id).items[0].unit, "kg");
+  assert.equal(restored.invoices.find((i) => i.id === id).total, 20);
+});
+test("cancel availability matches accounting safeguards for payments, returns and used purchase stock", async () => {
+  const id = await sale(2);
+  assert.equal(B.documentCancelBlockReason(repo.db, "invoices", id), "");
+  await B.savePayment("customer", { invoiceId: id, amount: 1, date, method: "Cash" });
+  assert.match(B.documentCancelBlockReason(repo.db, "invoices", id), /linked/);
+  await assert.rejects(() => B.voidDocument("invoices", id), /Return \/ credit note/);
+  const other = await sale(1);
+  await B.saveReturn({ invoiceId: other, lineId: repo.db.invoices.find((i) => i.id === other).items[0].lineId, qty: 1, date, restock: "yes", reason: "Return" });
+  assert.match(B.documentCancelBlockReason(repo.db, "invoices", other), /linked/);
+  const purchase = await B.savePurchase({ vendorId: v, date, dueDate: date }, line(10));
+  await sale(9);
+  assert.match(B.documentCancelBlockReason(repo.db, "purchases", purchase), /stock has already been used/);
+  await assert.rejects(() => B.voidDocument("purchases", purchase), /stock has already been used/);
 });
 test("invoice accepts zero and custom rates and keeps its tax after Settings changes", async () => {
   assert.equal(B.totals(repo.db, line(), 0, 0).tax, 0);

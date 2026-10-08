@@ -3,6 +3,8 @@ import { DB_KEY, RECOVERY_KEY, LEGACY_KEYS } from "../core/config.js";
 import { replaceDB, resetDB } from "../repositories/db.js";
 import { normalize } from "../storage/local-storage.js";
 import { saveSettings, importMasters } from "../services/business-service.js";
+
+export function initPage({ signal } = {}) {
 const form=$("form");
 for(const [k,v] of Object.entries(db.settings)){const f=form.elements.namedItem(k);if(f)f.value=String(v??"");}
 function previewLogo(){const v=$("logoDataUrl").value;$("logoPreview").hidden=!v;if(v)$("logoPreview").src=v;else $("logoPreview").removeAttribute("src");}
@@ -16,4 +18,6 @@ $("restore").addEventListener("change",async(e)=>{const f=e.target.files[0];if(!
 $("reset").addEventListener("click",()=>{if(prompt("Type DELETE to clear the active database. A backup downloads first.")==="DELETE"){backupBefore();run(resetDB);}});
 for(const [id,type] of [["importCustomers","customers"],["importVendors","vendors"],["importProducts","products"]])$(id).addEventListener("change",async(e)=>{const f=e.target.files[0];if(!f)return;await run(async()=>{const rows=csvParse(await f.text());const result=await importMasters(type,rows);alert(`${result.added} imported; ${result.skipped} duplicates skipped.`);});e.target.value="";});
 $("recovery").addEventListener("click",()=>{const raw=localStorage.getItem(RECOVERY_KEY);if(!raw)return toast("No prior V7 save is available yet.");download(`jk-database-v7-previous-save-${today()}.json`,raw,"application/json");});
-document.querySelectorAll("[data-feedback]").forEach((b)=>b.addEventListener("click",()=>{const kind=b.dataset.feedback==="feature"?"Feature request":"Problem report",detail=prompt(`${kind}: describe it here. A text file will be created for you to keep/send.`);if(detail?.trim())download(`jk-database-${b.dataset.feedback}-${today()}.txt`,`JK Database V7.2 — ${kind}\nDate: ${new Date().toLocaleString()}\nBuild: 7.2.0-cloud\n\n${detail.trim()}\n`,"text/plain");}));
+document.querySelectorAll("[data-feedback]").forEach((b)=>b.addEventListener("click",()=>{const kind=b.dataset.feedback==="feature"?"Feature request":"Problem report",detail=prompt(`${kind}: describe it here. A text file will be created for you to keep/send.`);if(detail?.trim())download(`jk-database-${b.dataset.feedback}-${today()}.txt`,`JK Database V7.2 — ${kind}\nDate: ${new Date().toLocaleString()}\nBuild: 7.2.1-cloud\n\n${detail.trim()}\n`,"text/plain");}));
+
+}

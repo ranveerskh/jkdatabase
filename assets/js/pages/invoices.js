@@ -4,11 +4,12 @@ import {
 } from "../app.js";
 import {
   saveInvoice, finaliseInvoice, duplicateInvoice, voidDocument,
-  deleteRecord, invoiceEditBlockReason,
+  deleteRecord, invoiceEditBlockReason, documentCancelBlockReason,
 } from "../services/business-service.js";
 import { lineEditor } from "./line-editor.js";
 import { printInvoice } from "../services/print-service.js";
 
+export function initPage({ signal } = {}) {
 const form = $("form"), list = $("list"), dlg = $("dlg");
 $("customer").innerHTML =
   option("", "Walk-in / manual") +
@@ -17,13 +18,14 @@ const lines = lineEditor();
 
 function actionMenu(i) {
   const draft = i.state === "draft";
+  const cancelReason = documentCancelBlockReason(db, "invoices", i.id);
   const editReason = invoiceEditBlockReason(db, i.id);
   const edit = editReason
     ? `<button type="button" class="btn small" disabled title="${esc(editReason)}">Edit</button><small class="record-menu-note">${esc(editReason)}</small>`
     : button("Edit", "edit", i.id);
   const deleteAction = draft
     ? button("Delete draft", "delete", i.id, "danger")
-    : `<small class="record-menu-note">Delete is unavailable for finalised invoices because stock, balances and reports must retain their history. Use Void or a credit note.</small>`;
+    : `<small class="record-menu-note">Finalised invoices are kept for accounting history and cannot be deleted.</small>`;
   const controls = [
     button("Preview / Print", "print", i.id),
     button("Duplicate draft", "duplicate", i.id),
@@ -31,8 +33,11 @@ function actionMenu(i) {
     draft
       ? button("Finalise", "finalise", i.id, "primary")
       : i.voided
-        ? `<small class="record-menu-note">This invoice is voided and retained for history.</small>`
-        : button("Void", "void", i.id, "danger"),
+        ? `<small class="record-menu-note">This invoice was cancelled and is retained for history.</small>`
+        : cancelReason
+          ? `<button type="button" class="btn small danger" disabled>Cancel invoice</button><small class="record-menu-note">${esc(cancelReason)}</small>`
+          : button("Cancel invoice", "void", i.id, "danger"),
+    !draft && !i.voided ? `<a class="btn small" href="returns.html?invoice=${encodeURIComponent(i.id)}">Return / credit note</a>` : "",
     deleteAction,
   ].join("");
   return `<details class="record-menu"><summary class="btn small" aria-label="Actions for ${esc(i.number)}">Actions <span aria-hidden="true">▾</span></summary><div class="record-menu-panel">${controls}</div></details>`;
@@ -90,7 +95,7 @@ $("search").addEventListener("input", render);
 render();
 
 actions(list, {
-  print: printInvoice,
+  print: (id) => printInvoice(id),
   edit: (id) => {
     const reason = invoiceEditBlockReason(db, id);
     if (reason) return toast(reason);
@@ -102,7 +107,7 @@ actions(list, {
       run(() => finaliseInvoice(id));
   },
   void: (id) => {
-    if (confirm("Void this unpaid invoice and restore its stock? Linked payments, credits, returns, refunds or transfers block voiding."))
+    if (confirm("Cancel this unpaid invoice? Its stock will be restored and its outstanding balance removed. The invoice will remain in history."))
       run(() => voidDocument("invoices", id));
   },
   delete: (id) => {
@@ -118,4 +123,6 @@ if (editId) {
   const reason = invoiceEditBlockReason(db, editId);
   if (reason) toast(reason);
   else open(db.invoices.find((x) => x.id === editId));
+}
+
 }

@@ -1,4 +1,4 @@
-JK Database V7.2 Cloud Edition
+JK Database V7.2.1 Cloud Edition
 ==============================
 
 What V7 is
@@ -77,7 +77,7 @@ and returns use the original invoice tax. Changing Settings does not rewrite pas
 Invoice management
 ------------------
 Draft invoices can be edited, duplicated, finalised or deleted. Finalised invoices can
-be previewed, duplicated or voided. A final invoice with no linked payments, credits,
+be previewed, duplicated or cancelled when eligible. A final invoice with no linked payments, credits,
 returns or transfers can be edited through a controlled workflow that reverses and
 reposts stock and stores before/after values in audit history. Invoices with dependent
 financial history are protected and the action menu explains why.
@@ -134,4 +134,26 @@ Not in this release
 Firebase Storage for uploaded files, Manager/Employee roles, real-time live update
 listeners, server-backed audit history and subscription billing are not enabled yet.
 
-Version: 7.2.0-cloud
+Version: 7.2.1-cloud
+
+V7.2.1 daily-workflow improvements
+---------------------------------
+Normal page navigation and successful saves keep the signed-in session and loaded
+cloud database. Firebase Auth and membership are checked when opening the app;
+Firestore Rules still enforce authorization on every cloud read/write. Reload after
+another device changes data. Normal navigation does not repeat the full access screen.
+
+Add line adds a transaction row. Create product creates an inventory product and
+selects it in the transaction. Each line has quantity, unit of measure, and price/cost
+per unit. Unit labels (pcs, kg, box, etc.) are stored with new documents and do not
+multiply stock quantities. Existing historical documents and totals are not rewritten.
+Quote expiry dates are shown only for quotes, not sales. Cancellation is offered only
+when eligible; payments/returns require the Return / credit note workflow instead.
+
+Developer verification
+----------------------
+npm test: 48 business, printing, migration and cloud helper tests.
+npm run check: JavaScript syntax, HTML links and duplicate IDs.
+npm run build: static Netlify output.
+For browser tests: npx playwright install chromium, then npm run test:ui. These tests
+use isolated Firebase fixtures; they never write records to the production project.

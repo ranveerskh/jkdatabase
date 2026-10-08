@@ -58,6 +58,7 @@ export function totals(d, lines, discount = 0, taxRate = d.settings.hstRate) {
       productId: p?.id || "",
       description: textValue(x.description || p?.name, "Description"),
       qty,
+      unit: String(x.unit ?? p?.unit ?? "pcs").trim() || "pcs",
       price,
       total: number(round(qty * price), "Line amount"),
       unitCost: p ? number(p.cost || 0, "Cost") : 0,
@@ -271,27 +272,8 @@ export const voidDocument = (type, id) =>
     if (!["invoices", "purchases"].includes(type))
       throw Error("Invalid document type.");
     const i = find(d, type, id);
-    if (!posted(i)) throw Error("Only finalised documents can be voided.");
-    if (i.legacy)
-      throw Error(
-        "Imported documents require reconciliation. Use a V7 credit note for an imported invoice; imported purchase history cannot be safely reversed automatically.",
-      );
-    const side = type === "invoices" ? "customer" : "vendor";
-    if (financialLinks(d, id, side) || Number(i.creditApplied))
-      throw Error(
-        "Payments, credits or returns are linked. Use a credit note; do not void a settled document.",
-      );
-    if (type === "purchases") {
-      const groups = new Map();
-      for (const x of i.items)
-        if (x.productId)
-          groups.set(x.productId, (groups.get(x.productId) || 0) + x.qty);
-      for (const [pid, q] of groups)
-        if (Number(find(d, "products", pid).qty) < q)
-          throw Error(
-            "Cannot void this purchase: some stock has already been used.",
-          );
-    }
+    const reason = documentCancelBlockReason(d, type, id);
+    if (reason) throw Error(reason);
     for (const x of i.items || [])
       if (x.productId)
         stockMove(
@@ -307,6 +289,27 @@ export const voidDocument = (type, id) =>
     i.voidDate = today();
     audit(d, "Document voided", i.number, id);
   });
+export function documentCancelBlockReason(d, type, id) {
+  if (!["invoices", "purchases"].includes(type)) return "Invalid document type.";
+  const i = d[type].find((document) => document.id === id);
+  if (!i) return "Document no longer exists. Reload and try again.";
+  if (!posted(i)) return "Only finalised, active documents can be cancelled.";
+  if (i.legacy) return "Imported documents require reconciliation before cancellation.";
+  const side = type === "invoices" ? "customer" : "vendor";
+  if (financialLinks(d, id, side) || Number(i.creditApplied))
+    return type === "invoices"
+      ? "Payments, credits or returns are linked. Use Return / credit note to correct this invoice."
+      : "Payments, credits or refunds are linked. This purchase must be retained for payment history.";
+  if (type === "purchases") {
+    const grouped = new Map();
+    for (const line of i.items || [])
+      if (line.productId) grouped.set(line.productId, (grouped.get(line.productId) || 0) + Number(line.qty));
+    for (const [productId, quantity] of grouped)
+      if (Number(d.products.find((product) => product.id === productId)?.qty || 0) < quantity)
+        return "Cannot cancel this purchase: some stock has already been used.";
+  }
+  return "";
+}
 export const savePurchase = (o, lines) =>
   transaction((d) => {
     dates(o);

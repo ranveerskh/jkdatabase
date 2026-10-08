@@ -1,5 +1,8 @@
+import { refreshPage } from "../services/navigation.js";
 import { $, db, esc, money, toast, posted, invoiceBalance, purchaseBalance } from "../app.js";
 import { savePerson } from "../services/business-service.js";
+
+export function initPage({ signal } = {}) {
 const form=$("form"), dlg=$("dlg");
 function customerFor(person){return db.customers.find((x)=>x.personId===person.id)}
 function vendorFor(person){return db.vendors.find((x)=>x.personId===person.id)}
@@ -14,5 +17,7 @@ $("addPerson").addEventListener("click",()=>open());
 function render(){const q=$("search").value.trim().toLowerCase();const people=(db.people||[]).filter((p)=>`${p.name} ${p.phone} ${p.email} ${p.contact}`.toLowerCase().includes(q));$("count").textContent=`${people.length} people`;
 $("list").innerHTML=people.length?people.map((p)=>{const s=stats(p),roles=(p.roles||[]).map((r)=>`<span class="role-chip">${r==="customer"?"Customer":"Vendor"}</span>`).join("");return `<article class="record-card people-card"><div class="record-main"><b>${esc(p.name)}</b><small>${esc(p.phone||"")}${p.phone&&p.email?" · ":""}${esc(p.email||"")}</small></div><div><small class="muted">Role</small><div>${roles||"—"}</div></div><div class="record-stat"><small>Total sales</small><b>${money(s.sales)}</b></div><div class="record-stat optional-stat"><small>Total purchases</small><b>${money(s.purchases)}</b></div><div class="record-stat optional-stat"><small>To receive</small><b>${money(s.receive)}</b></div><div class="record-stat optional-stat"><small>To pay</small><b>${money(s.pay)}</b></div><div class="record-actions"><button class="btn small" data-edit="${esc(p.id)}">Edit</button></div></article>`}).join(""):'<div class="empty card">No people yet. Create a Sale or Purchase and they will appear automatically.</div>';}
 $("search").addEventListener("input",render);$("list").addEventListener("click",(e)=>{const b=e.target.closest("[data-edit]");if(b)open(db.people.find((p)=>p.id===b.dataset.edit));});
-form.addEventListener("submit",async(e)=>{e.preventDefault();const btn=e.submitter;btn.disabled=true;try{await savePerson(Object.fromEntries(new FormData(form)));toast("Person saved successfully.","ok");location.reload();}catch(err){toast(err.message);btn.disabled=false;}});
+form.addEventListener("submit",async(e)=>{e.preventDefault();const btn=e.submitter;btn.disabled=true;try{await savePerson(Object.fromEntries(new FormData(form)));toast("Person saved successfully.","ok");await refreshPage();}catch(err){toast(err.message);btn.disabled=false;}});
 render();
+
+}
