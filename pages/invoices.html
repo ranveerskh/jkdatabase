@@ -33,12 +33,12 @@
           />
           <div class="note" id="count"></div>
         </div>
-        <div id="list"></div>
+        <div id="list" class="record-grid"></div>
         <dialog id="dlg">
           <form class="modal" id="form">
             <h2 id="modalTitle">New Sales Invoice</h2>
             <input name="id" type="hidden" />
-            <p class="hint">
+            <p class="hint" id="formHint">
               Drafts do not change stock. Finalising locks the invoice and
               records the sale.
             </p>
@@ -64,6 +64,14 @@
                 ><input name="discount" type="number" step=".01" value="0" />
               </div>
               <div class="field">
+                <label>Tax name</label
+                ><input name="taxLabel" maxlength="50" required />
+              </div>
+              <div class="field">
+                <label>Tax rate (%)</label
+                ><input name="taxRate" type="number" min="0" max="100" step="any" required />
+              </div>
+              <div class="field">
                 <label>Notes</label><input name="notes" />
               </div>
             </div>
@@ -73,7 +81,7 @@
             <div class="totals">
               <div><span>Subtotal</span><b id="sub"></b></div>
               <div><span>Discount</span><b id="disc"></b></div>
-              <div><span>HST</span><b id="tax"></b></div>
+              <div><span id="taxTitle">HST</span><b id="tax"></b></div>
               <div class="grand">
                 <span>Total</span><span id="total"></span>
               </div>

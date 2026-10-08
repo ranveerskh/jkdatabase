@@ -31,6 +31,7 @@ export const DEFAULT_SETTINGS = {
   legalName: "",
   logoDataUrl: "",
   hstNo: "",
+  taxLabel: "HST",
   hstRate: 13,
   currency: "CAD",
   address: "",

@@ -816,6 +816,27 @@ dialog {
 .record-main small, .record-stat small { display: block; color: var(--muted); font-size: 11px; margin-top: 3px; }
 .record-stat b { font-size: 13px; }
 .record-actions { display: flex; justify-content: flex-end; gap: 6px; flex-wrap: wrap; }
+.record-menu { position: relative; display: inline-block; text-align: left; }
+.record-menu summary { display: inline-flex; align-items: center; gap: 5px; list-style: none; cursor: pointer; }
+.record-menu summary::-webkit-details-marker { display: none; }
+.record-menu[open] { z-index: 50; }
+.record-menu-panel {
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 50;
+  display: grid; gap: 5px; width: min(270px, calc(100vw - 32px));
+  padding: 8px; border: 1px solid var(--line); border-radius: 12px;
+  background: white; box-shadow: 0 10px 30px rgba(16,24,40,.16);
+}
+.record-menu-panel .btn { width: 100%; justify-content: flex-start; text-align: left; }
+.record-menu-panel .btn:disabled { opacity: .55; cursor: not-allowed; }
+.record-menu-note { display: block; padding: 7px 8px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; line-height: 1.4; }
+.audit-revision { margin-top: 8px; }
+.audit-revision summary { cursor: pointer; color: var(--primary); }
+.revision-compare { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 10px; }
+.revision-compare section { min-width: 0; padding: 10px; border: 1px solid var(--line); border-radius: 8px; white-space: normal; }
+.revision-compare h3 { margin: 0 0 8px; font-size: 14px; }
+.revision-snapshot pre { margin: 8px 0 0; white-space: pre-wrap; font: inherit; font-size: 12px; }
+.tax-discount-row { display: grid; grid-template-columns: minmax(150px,.9fr) minmax(145px,.8fr) minmax(145px,.8fr); gap: 10px; max-width: 720px; margin: 14px 0 0 auto; }
+.tax-discount-row .field { min-width: 0; }
 .filterbar { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 12px; }
 .filterbar .tab { min-height: 40px; }
 .people-card {
@@ -903,6 +924,7 @@ dialog {
   .quick-actions { grid-template-columns: repeat(3,1fr); }
   .record-card { grid-template-columns: 1.2fr .7fr .7fr; }
   .record-actions { grid-column: 1/-1; justify-content: flex-start; padding-top: 7px; border-top: 1px solid var(--line); }
+  .record-menu-panel { left: 0; right: auto; }
   .record-card .optional-stat { display: none; }
   .people-card { grid-template-columns: 1fr 1fr; }
   .people-card .record-actions { grid-column: 1/-1; }
@@ -920,4 +942,6 @@ dialog {
   .deal-footer { padding-inline: 14px; }
   .deal-footer .btn { flex: 1; }
   .advanced-links { grid-template-columns: 1fr; }
+  .tax-discount-row { grid-template-columns: 1fr; max-width: none; }
+  .revision-compare { grid-template-columns: 1fr; }
 }

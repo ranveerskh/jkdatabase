@@ -20,6 +20,8 @@ $("customer").innerHTML =
   option("", "Walk-in / manual") +
   db.customers.map((c) => option(c.id, c.name)).join("");
 $("date").value = $("validUntil").value = today();
+$("form").elements.namedItem("taxLabel").value = db.settings.taxLabel || "HST";
+$("form").elements.namedItem("taxRate").value = db.settings.hstRate;
 $("count").textContent = `${db.quotes.length} quotes`;
 $("list").innerHTML = table(
   ["Quote", "Date", "Valid until", "Customer", "Total", "Status", ""],

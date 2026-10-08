@@ -1,8 +1,8 @@
-# JK Database V7.0.0 Local — verification report
+# JK Database V7.0.1 Local — verification report
 
 ## Automated business-logic suite
 
-`npm test` passes **33/33** tests.
+`npm test` passes **41/41** tests.
 
 Coverage includes:
 - posted sale tax, stock ledger and cost snapshots
@@ -24,6 +24,10 @@ Coverage includes:
 - V6 to V7 People migration without changing document totals
 - same identity reused across customer/vendor roles
 - unsafe CSV formula-prefix rejection with full import rollback
+- 0%, custom and historical invoice tax snapshots; both quote conversion flows and returns preserve original tax
+- controlled final invoice edits reverse/repost stock, retain audit snapshots, and roll back if stock is insufficient
+- final invoice editing is blocked when linked payments or returns exist
+- customer and product edits remain available while linked-record deletion stays guarded
 
 ## Static application checks
 
@@ -32,16 +36,16 @@ Coverage includes:
 - Main daily navigation is limited to Home, Sales, Purchases, People, Products / Inventory,
   Expenses, Reports and Settings; legacy/technical pages remain available for advanced/backward workflows.
 
-## Browser smoke-test note
+## Browser and print visual note
 
-A Chromium binary is present in the build environment, but this sandbox blocks local/file page
-navigation (`ERR_BLOCKED_BY_ADMINISTRATOR`). Because of that environment restriction, automated
-visual browser navigation could not be completed here. Core logic and static page/link validation
-were run successfully instead.
+Work Browser policy blocks local `file:` navigation, and this sandbox does not allow binding a
+local HTTP server. Desktop/mobile browser screenshots and rendered Print / Save PDF comparison
+could not be completed in this environment. The invoice markup and print CSS were reviewed against
+the supplied reference, and the automated business-logic and static page/link checks passed.
 
 ## Data compatibility
 
 V7 uses `jkDatabaseV7` and retains V6 as a migration source. Existing V6 data is not overwritten by
 the package. Migration creates unified People links while preserving historical document totals.
 
-Build: `7.0.0-local`
+Build: `7.0.1-local`

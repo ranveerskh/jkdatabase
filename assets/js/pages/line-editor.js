@@ -13,18 +13,25 @@ export function lineEditor(purchase = false, { onTotals } = {}) {
   }
   function calculate() {
     try {
+      const rateInput = form.elements.namedItem("taxRate"),
+        rate = rateInput?.value || db.settings.hstRate,
+        labelInput = form.elements.namedItem("taxLabel"),
+        label = String(labelInput?.value || db.settings.taxLabel || "HST").trim() || "HST",
+        rateLabel = String(Number(rate));
       const t = totals(
         db,
         values(),
         purchase ? 0 : form.elements.namedItem("discount").value || 0,
+        rate,
       );
       $("sub").textContent = money(t.subtotal);
       if ($("disc")) $("disc").textContent = money(t.discount);
       $("tax").textContent = money(t.tax);
+      if ($("taxTitle")) $("taxTitle").textContent = `${label.toUpperCase()} (${rateLabel}%)`;
       $("total").textContent = money(t.total);
       onTotals?.(t);
     } catch (e) {
-      $("total").textContent = "Check line items / discount";
+      $("total").textContent = "Check items, discount or tax rate";
     }
   }
   function add(x = {}) {
@@ -66,6 +73,8 @@ export function lineEditor(purchase = false, { onTotals } = {}) {
   }
   $("addRow").addEventListener("click", () => add());
   form.elements.namedItem("discount")?.addEventListener("input", calculate);
+  form.elements.namedItem("taxRate")?.addEventListener("input", calculate);
+  form.elements.namedItem("taxLabel")?.addEventListener("input", calculate);
   set();
   return { values, set, calculate, refreshProducts, add };
 }

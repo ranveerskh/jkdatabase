@@ -1,5 +1,5 @@
 import { $, db, esc, money, actions, today, toast, invoiceBalance, invoiceStatus, customerPaid, creditBalance } from "../app.js";
-import { saveSaleDeal, savePayment, voidDocument, saveMaster, convertQuoteToSale, refundCredit } from "../services/business-service.js";
+import { saveSaleDeal, savePayment, voidDocument, saveMaster, convertQuoteToSale, finaliseInvoice, deleteRecord, duplicateInvoice, invoiceEditBlockReason } from "../services/business-service.js";
 import { printInvoice } from "../services/print-service.js";
 import { lineEditor } from "./line-editor.js";
 
@@ -44,8 +44,29 @@ function syncPayment() {
   $("payTotal").textContent = money(currentTotal); $("payNow").textContent = money(paid);
   $("payBalance").textContent = balance >= 0 ? money(balance) : `${money(-balance)} credit`;
 }
+function invoiceActions(x, due) {
+  const draft = x.state === "draft",
+    editReason = invoiceEditBlockReason(db, x.id),
+    edit = editReason
+      ? `<button type="button" class="btn small" disabled title="${esc(editReason)}">Edit</button><small class="record-menu-note">${esc(editReason)}</small>`
+      : `<button type="button" class="btn small" data-action="edit" data-id="${esc(x.id)}">Edit</button>`,
+    controls = [
+      `<button type="button" class="btn small" data-action="preview" data-id="${esc(x.id)}">Preview / Print</button>`,
+      draft ? edit : (due > 0 && !x.voided ? `<button type="button" class="btn small primary" data-action="pay" data-id="${esc(x.id)}">Receive Payment</button>` : ""),
+      !draft && !x.voided ? `<button type="button" class="btn small" data-action="return" data-id="${esc(x.id)}">Return Item</button>` : "",
+      `<button type="button" class="btn small" data-action="duplicate" data-id="${esc(x.id)}">Duplicate draft</button>`,
+      draft
+        ? `<button type="button" class="btn small primary" data-action="finalise" data-id="${esc(x.id)}">Finalise</button><button type="button" class="btn small danger" data-action="delete" data-id="${esc(x.id)}">Delete draft</button>`
+        : (!x.voided ? `<button type="button" class="btn small danger" data-action="void" data-id="${esc(x.id)}">Void</button>` : `<small class="record-menu-note">This invoice is voided and retained for history.</small>`),
+      !draft ? edit : "",
+      !draft ? `<small class="record-menu-note">Finalised invoices cannot be deleted because stock, balances and reports retain their history. Use Void or a credit note.</small>` : "",
+    ].filter(Boolean).join("");
+  return `<details class="record-menu"><summary class="btn small" aria-label="Actions for ${esc(x.number)}">Actions <span aria-hidden="true">▾</span></summary><div class="record-menu-panel">${controls}</div></details>`;
+}
 function openDeal(kind="sale", source=null) {
   form.reset(); $("customerId").value = ""; $("date").value = today(); $("paymentDate").value = today();
+  form.elements.namedItem("taxLabel").value = source?.taxLabel || db.settings.taxLabel || "HST";
+  form.elements.namedItem("taxRate").value = source?.taxRate ?? db.settings.hstRate;
   $("dueDate").value = addDays(today(), db.settings.defaultDueDays || 30); $("validUntil").value = addDays(today(), db.settings.defaultQuoteDays || 30);
   form.querySelector(`input[name="dealType"][value="${kind}"]`).checked = true;
   form.querySelector('input[name="paymentPreset"][value="full"]').checked = true;
@@ -101,7 +122,7 @@ function render() {
   $("list").innerHTML = filtered.length ? filtered.map((x) => {
     if (x.kind === "quote") return `<article class="record-card" data-search="${esc((x.customerName+' '+x.number).toLowerCase())}"><div class="record-main"><b>${esc(x.customerName)}</b><small>${esc(x.number)} · Quote · ${esc(x.date)}</small></div><div class="record-stat"><small>Total</small><b>${money(x.total)}</b></div><div class="record-stat"><small>Valid until</small><b>${esc(x.validUntil||'—')}</b></div><div class="record-stat optional-stat"><small>Status</small><b>${esc(x.status)}</b></div><div class="record-stat optional-stat"><small>Stock</small><b>Not reserved</b></div><div class="record-actions">${x.status !== "Converted" ? `<button class="btn small primary" data-action="convert" data-id="${esc(x.id)}">Convert to Sale</button>` : `<span class="badge paid">Converted</span>`}</div></article>`;
     const status = invoiceStatus(x), due = invoiceBalance(x), credit = creditBalance(x);
-    return `<article class="record-card"><div class="record-main"><b>${esc(x.customerName)}</b><small>${esc(x.number)} · ${esc(x.date)}</small></div><div class="record-stat"><small>Total</small><b>${money(x.total)}</b></div><div class="record-stat"><small>Paid</small><b>${money(customerPaid(x.id))}</b></div><div class="record-stat optional-stat"><small>Due</small><b>${money(due)}</b></div><div class="record-stat optional-stat"><small>Status</small><b><span class="badge ${esc(status.toLowerCase().replaceAll(' ',''))}">${esc(status)}</span>${credit ? ` · ${money(credit)} credit` : ''}</b></div><div class="record-actions"><button class="btn small" data-action="preview" data-id="${esc(x.id)}">Preview</button>${due>0 && !x.voided ? `<button class="btn small primary" data-action="pay" data-id="${esc(x.id)}">Receive Payment</button>` : ''}${!x.voided ? `<button class="btn small" data-action="return" data-id="${esc(x.id)}">Return Item</button><button class="btn small" data-action="duplicate" data-id="${esc(x.id)}">Duplicate</button><button class="btn small danger" data-action="void" data-id="${esc(x.id)}">Void</button>` : ''}</div></article>`;
+    return `<article class="record-card"><div class="record-main"><b>${esc(x.customerName)}</b><small>${esc(x.number)} · ${esc(x.date)}</small></div><div class="record-stat"><small>Total</small><b>${money(x.total)}</b></div><div class="record-stat"><small>Paid</small><b>${money(customerPaid(x.id))}</b></div><div class="record-stat optional-stat"><small>Due</small><b>${money(due)}</b></div><div class="record-stat optional-stat"><small>Status</small><b><span class="badge ${esc(status.toLowerCase().replaceAll(' ',''))}">${esc(status)}</span>${credit ? ` · ${money(credit)} credit` : ''}</b></div><div class="record-actions">${invoiceActions(x,due)}</div></article>`;
   }).join("") : '<div class="empty card">No matching sales or quotes.</div>';
 }
 $("search").addEventListener("input", render);
@@ -111,8 +132,11 @@ $("list").addEventListener("click", async (e) => {
   const b=e.target.closest("[data-action]"); if(!b)return; const id=b.dataset.id, action=b.dataset.action;
   try {
     if(action==="preview") printInvoice(id);
-    if(action==="duplicate") openDeal("sale", db.invoices.find((x)=>x.id===id));
+    if(action==="duplicate") { const duplicateId=await duplicateInvoice(id); location.href=`invoices.html?edit=${encodeURIComponent(duplicateId)}`; }
+    if(action==="edit") location.href=`invoices.html?edit=${encodeURIComponent(id)}`;
     if(action==="return") location.href=`returns.html?invoice=${encodeURIComponent(id)}`;
+    if(action==="finalise" && confirm("Finalise this draft and reduce stock?")){ await finaliseInvoice(id); location.reload(); }
+    if(action==="delete" && confirm("Delete this draft invoice? Finalised invoices are retained for accounting history.")){ await deleteRecord("invoices",id); location.reload(); }
     if(action==="convert") { if(confirm("Convert this quote to a final sale? Stock will be reduced and the new invoice will start unpaid.")){ const invoiceId=await convertQuoteToSale(id); printInvoice(invoiceId); location.reload(); } }
     if(action==="void" && confirm("Void this unpaid invoice and restore stock? Linked payments or returns will block this action.")){ await voidDocument("invoices",id); location.reload(); }
     if(action==="pay") {

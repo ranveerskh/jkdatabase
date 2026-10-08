@@ -52,6 +52,110 @@ test("finalised sale has rounded tax, stock ledger and cost snapshot", async () 
   assert.equal(i.items[0].unitCost, 4);
   assert.equal(repo.db.stockLedger[0].reference, i.number);
 });
+test("invoice accepts zero and custom rates and keeps its tax after Settings changes", async () => {
+  assert.equal(B.totals(repo.db, line(), 0, 0).tax, 0);
+  assert.equal(B.totals(repo.db, line(), 0, 5).tax, 0.5);
+  assert.equal(B.totals(repo.db, line(), 0, 15).tax, 1.5);
+  assert.equal(B.totals(repo.db, line(), 0, 7.25).tax, 0.73);
+  assert.equal(B.totals(repo.db, line(), 0, 5.123).taxRate, 5.123);
+  await assert.rejects(() => B.saveInvoice({ ...input(), taxRate: -0.01 }, line(), true), /between 0 and 100/);
+  await assert.rejects(() => B.saveInvoice({ ...input(), taxRate: 100.01 }, line(), true), /between 0 and 100/);
+  const id = await B.saveInvoice({ ...input(), taxRate: "5.00", taxLabel: "TAX" }, line(2), true);
+  const saved = repo.db.invoices.find((x) => x.id === id);
+  assert.equal(saved.taxRate, 5);
+  assert.equal(saved.taxLabel, "TAX");
+  assert.equal(saved.tax, 1);
+  assert.equal(saved.total, 21);
+  await B.saveSettings({ ...repo.db.settings, hstRate: 15, taxLabel: "GST", currency: "CAD", allowNegativeStock: "false" });
+  assert.equal(repo.db.invoices.find((x) => x.id === id).taxRate, 5);
+  assert.equal(repo.db.invoices.find((x) => x.id === id).taxLabel, "TAX");
+  assert.equal(repo.db.invoices.find((x) => x.id === id).total, 21);
+  const preciseId = await B.saveInvoice({ ...input(), taxRate: "5.123", taxLabel: "Custom" }, line(), true);
+  const precise = repo.db.invoices.find((x) => x.id === preciseId);
+  assert.equal(precise.taxRate, 5.123);
+  assert.equal(precise.tax, 0.51);
+});
+test("quote conversion preserves selected tax name and rate", async () => {
+  const result = await B.saveSaleDeal({
+    dealType: "quote", customerId: c, date, validUntil: date,
+    discount: 0, taxRate: 5, taxLabel: "GST",
+  }, line(2));
+  const quote = repo.db.quotes.find((x) => x.id === result.id);
+  assert.equal(quote.taxRate, 5);
+  assert.equal(quote.taxLabel, "GST");
+  await B.saveSettings({ ...repo.db.settings, hstRate: 15, taxLabel: "HST", currency: "CAD", allowNegativeStock: "false" });
+  const id = await B.convertQuoteToSale(quote.id);
+  const invoice = repo.db.invoices.find((x) => x.id === id);
+  assert.equal(invoice.taxRate, 5);
+  assert.equal(invoice.taxLabel, "GST");
+  assert.equal(invoice.tax, 1);
+  assert.equal(invoice.total, 21);
+});
+test("legacy quote form preserves custom tax when converted to a draft invoice", async () => {
+  await B.saveQuote({
+    customerId: c, date, validUntil: date, subtotal: 20, discount: 0,
+    description: "Consulting", taxRate: 5, taxLabel: "GST",
+  });
+  const quote = repo.db.quotes[0];
+  await B.saveSettings({ ...repo.db.settings, hstRate: 15, taxLabel: "HST", currency: "CAD", allowNegativeStock: "false" });
+  await B.convertQuote(quote.id);
+  const invoice = repo.db.invoices[0];
+  assert.equal(invoice.state, "draft");
+  assert.equal(invoice.taxRate, 5);
+  assert.equal(invoice.taxLabel, "GST");
+  assert.equal(invoice.tax, 1);
+  assert.equal(invoice.total, 21);
+});
+test("return credit uses the original invoice line tax after Settings changes", async () => {
+  const id = await B.saveInvoice({ ...input(), taxRate: 5, taxLabel: "GST" }, line(2), true);
+  const invoice = repo.db.invoices.find((x) => x.id === id);
+  await B.saveSettings({ ...repo.db.settings, hstRate: 15, taxLabel: "HST", currency: "CAD", allowNegativeStock: "false" });
+  const returnId = await B.saveReturn({ invoiceId: id, lineId: invoice.items[0].lineId, qty: 1, date, reason: "Return" , restock: "yes" });
+  const credit = repo.db.returns.find((x) => x.id === returnId);
+  assert.equal(credit.tax, 0.5);
+  assert.equal(credit.amount, 10.5);
+  assert.equal(repo.db.invoices.find((x) => x.id === id).taxRate, 5);
+  assert.equal(repo.db.products[0].qty, 9);
+});
+test("unlinked final invoice edit reverses and reposts stock with audit snapshots", async () => {
+  const id = await B.saveInvoice({ ...input(), taxRate: 5, taxLabel: "GST" }, line(2), true);
+  const original = structuredClone(repo.db.invoices.find((x) => x.id === id));
+  assert.equal(B.invoiceEditBlockReason(repo.db, id), "");
+  await B.saveInvoice({ ...input(), id, taxRate: 15, taxLabel: "HST" }, line(3), true);
+  const edited = repo.db.invoices.find((x) => x.id === id);
+  assert.equal(edited.number, original.number);
+  assert.equal(edited.total, 34.5);
+  assert.equal(edited.taxRate, 15);
+  assert.equal(repo.db.products[0].qty, 7);
+  assert.deepEqual(repo.db.stockLedger.filter((x) => x.reference === edited.number).map((x) => x.qty), [-3, 2, -2]);
+  const revision = repo.db.audit.find((x) => x.action === "Invoice revised");
+  assert.equal(revision.before.total, 21);
+  assert.equal(revision.after.total, 34.5);
+  await assert.rejects(() => B.deleteRecord("invoices", id), /retained/);
+});
+test("final invoice edit that exceeds available stock rolls back all effects", async () => {
+  const id = await B.saveInvoice({ ...input(), taxRate: 5, taxLabel: "GST" }, line(2), true);
+  await B.saveInvoice(input(), line(8), true);
+  const before = JSON.stringify(repo.db);
+  await assert.rejects(() => B.saveInvoice({ ...input(), id, taxRate: 5, taxLabel: "GST" }, line(5), true), /Not enough stock/);
+  assert.equal(JSON.stringify(repo.db), before);
+});
+test("linked payments and returns block final invoice edits", async () => {
+  const paidId = await B.saveInvoice({ ...input(), taxRate: 5, taxLabel: "GST" }, line(2), true);
+  await B.savePayment("customer", { invoiceId: paidId, date, amount: 5 });
+  await assert.rejects(
+    () => B.saveInvoice({ ...input(), id: paidId, taxRate: 5, taxLabel: "GST" }, line(1), true),
+    /linked payments, returns, credits/,
+  );
+
+  const returnedId = await B.saveInvoice({ ...input(), taxRate: 5, taxLabel: "GST" }, line(), true);
+  const returnedInvoice = repo.db.invoices.find((x) => x.id === returnedId);
+  await B.saveReturn({ invoiceId: returnedId, lineId: returnedInvoice.items[0].lineId, qty: 1, date, reason: "Return", restock: "no" });
+  await assert.rejects(
+    () => B.saveInvoice({ ...input(), id: returnedId, taxRate: 5, taxLabel: "GST" }, line(), true),
+    /linked payments, returns, credits/,
+  );
+});
 test("combined duplicate product quantities reject atomically", async () => {
   await assert.rejects(
     () => B.saveInvoice(input(), [...line(6), ...line(6)], true),
@@ -206,6 +310,22 @@ test("linked master records cannot be deleted", async () => {
   await sale();
   await assert.rejects(() => B.deleteRecord("customers", c), /linked/);
   await assert.rejects(() => B.deleteRecord("products", p), /history/);
+});
+test("customer and product edits remain available with guarded deletion", async () => {
+  await B.saveMaster("customers", { id: c, name: "Renamed Customer", email: "a@example.test" });
+  assert.equal(repo.db.customers.find((x) => x.id === c).name, "Renamed Customer");
+  const unusedCustomer = await B.saveMaster("customers", { name: "Temporary Customer" });
+  await B.deleteRecord("customers", unusedCustomer);
+  assert.equal(repo.db.customers.some((x) => x.id === unusedCustomer), false);
+
+  await B.saveMaster("products", { id: p, name: "Renamed Widget", sku: "W1", qty: 10, cost: 4, price: 12, low: 2 });
+  assert.equal(repo.db.products.find((x) => x.id === p).price, 12);
+  await assert.rejects(() => B.deleteRecord("products", p), /history/);
+  const unusedProduct = await B.saveMaster("products", { name: "Temporary Item", sku: "TEMP-1", qty: 0, cost: 1, price: 2, low: 1 });
+  await B.saveMaster("products", { id: unusedProduct, name: "Updated Temporary Item", sku: "TEMP-1", qty: 0, cost: 1, price: 3, low: 1 });
+  assert.equal(repo.db.products.find((x) => x.id === unusedProduct).price, 3);
+  await B.deleteRecord("products", unusedProduct);
+  assert.equal(repo.db.products.some((x) => x.id === unusedProduct), false);
 });
 test("CSV imports are atomic, generate unique IDs and ledger", async () => {
   await assert.rejects(

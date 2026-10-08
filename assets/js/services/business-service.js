@@ -34,7 +34,20 @@ function dates(o) {
       throw Error("Due date cannot be before document date.");
   }
 }
-export function totals(d, lines, discount = 0) {
+function percentage(v, label = "Tax rate") {
+  const n = Number(v);
+  if (v === "" || v == null || (typeof v === "string" && !v.trim()) || !Number.isFinite(n) || n < 0 || n > 100)
+    throw Error(`${label} must be between 0 and 100.`);
+  return n;
+}
+function selectedTax(d, o = {}) {
+  const rawRate = String(o.taxRate ?? "").trim();
+  const taxRate = percentage(rawRate ? rawRate : d.settings.hstRate);
+  const taxLabel = String(o.taxLabel ?? d.settings.taxLabel ?? "HST").trim() || "HST";
+  if (taxLabel.length > 50) throw Error("Tax name must be 50 characters or less.");
+  return { taxRate, taxLabel };
+}
+export function totals(d, lines, discount = 0, taxRate = d.settings.hstRate) {
   if (!lines.length) throw Error("Add at least one line item.");
   let items = lines.map((x) => {
     const p = x.productId ? find(d, "products", x.productId) : null;
@@ -53,7 +66,7 @@ export function totals(d, lines, discount = 0) {
   const subtotal = number(round(sum(items, (x) => x.total)), "Subtotal");
   discount = number(discount, "Discount", 0, subtotal);
   const taxable = round(subtotal - discount),
-    rate = number(d.settings.hstRate, "HST rate", 0, 100),
+    rate = percentage(taxRate),
     tax = round((taxable * rate) / 100);
   // Allocate rounded cents cumulatively so every line adds exactly to the document totals.
   let base = 0,
@@ -150,30 +163,39 @@ export const saveInvoice = (o, lines, finalise = false) =>
   transaction((d) => {
     dates(o);
     const c = o.customerId ? find(d, "customers", o.customerId) : null,
-      calc = totals(d, lines, o.discount || 0);
-    let i;
+      tax = selectedTax(d, o),
+      calc = totals(d, lines, o.discount || 0, tax.taxRate);
+    let i, wasPosted = false, previous;
     if (o.id) {
       i = find(d, "invoices", o.id);
-      if (i.state !== "draft")
-        throw Error(
-          "Only drafts can be edited. Use a credit note or void an unpaid invoice.",
-        );
+      if (i.state !== "draft") {
+        const reason = invoiceEditBlockReason(d, i.id);
+        if (reason) throw Error(reason);
+        wasPosted = true;
+        previous = structuredClone(i);
+        reverseInvoiceStock(d, i, "Invoice edit reversal");
+      }
     } else {
       i = { id: uid("i"), number: nextNumber(d, "invoices") };
       d.invoices.push(i);
     }
     Object.assign(i, calc, {
+      taxLabel: tax.taxLabel,
       date: o.date,
       dueDate: o.dueDate || o.date,
       customerId: c?.id || "",
       customerName: c?.name || String(o.manualCustomer || "Walk-in Customer"),
       notes: String(o.notes || ""),
-      state: "draft",
+      state: wasPosted ? "posted" : "draft",
       voided: false,
       currency: d.settings.currency,
     });
-    if (finalise) postInvoice(d, i);
-    else audit(d, "Invoice draft saved", i.number, i.id);
+    if (finalise || wasPosted) postInvoice(d, i);
+    if (wasPosted) {
+      audit(d, "Invoice revised", `${i.number}: ${previous.total} → ${i.total}`, i.id);
+      d.audit[0].before = previous;
+      d.audit[0].after = structuredClone(i);
+    } else if (!finalise) audit(d, "Invoice draft saved", i.number, i.id);
     return i.id;
   });
 export const finaliseInvoice = (id) =>
@@ -217,6 +239,32 @@ function financialLinks(d, id, side) {
     d.refunds.some((r) => r.documentId === id) ||
     (side === "customer" && d.returns.some((r) => r.invoiceId === id))
   );
+}
+export function invoiceEditBlockReason(d, id) {
+  const i = d.invoices.find((x) => x.id === id);
+  if (!i) return "Invoice no longer exists. Reload and try again.";
+  if (i.state === "draft") return "";
+  if (i.voided || i.state === "void")
+    return "Voided invoices are retained for history and cannot be edited.";
+  if (!posted(i)) return "This invoice cannot be edited in its current state.";
+  if (i.legacy)
+    return "Imported invoices need reconciliation before they can be edited.";
+  if (financialLinks(d, id, "customer") || Number(i.creditApplied))
+    return "This invoice has linked payments, returns, credits, refunds or transfers. Use a credit note to correct it.";
+  return "";
+}
+function reverseInvoiceStock(d, i, type) {
+  for (const x of i.items || [])
+    if (x.productId)
+      stockMove(
+        d,
+        x.productId,
+        x.qty,
+        type,
+        i.number,
+        "Prior invoice stock movement reversed",
+        i.date,
+      );
 }
 export const voidDocument = (type, id) =>
   transaction((d) => {
@@ -277,6 +325,7 @@ export const savePurchase = (o, lines) =>
       id: uid("pb"),
       number: nextNumber(d, "purchases"),
       ...totals(d, lines, 0),
+      taxLabel: d.settings.taxLabel || "HST",
       date: o.date,
       dueDate: o.dueDate || o.date,
       vendorId: v?.id || "",
@@ -727,6 +776,7 @@ export const saveQuote = (o) =>
     if (o.validUntil < o.date)
       throw Error("Valid-until date cannot precede quote date.");
     const c = o.customerId ? find(d, "customers", o.customerId) : null;
+    const tax = selectedTax(d, o);
     const calc = totals(
       d,
       [
@@ -737,11 +787,13 @@ export const saveQuote = (o) =>
         },
       ],
       o.discount || 0,
+      tax.taxRate,
     );
     const q = {
       id: uid("q"),
       number: nextNumber(d, "quotes"),
       ...calc,
+      taxLabel: tax.taxLabel,
       customerId: c?.id || "",
       customerName: c?.name || o.manualCustomer || "Walk-in Customer",
       date: o.date,
@@ -765,6 +817,7 @@ export const convertQuote = (id) =>
           taxable: q.taxable,
           total: q.total,
           taxRate: q.taxRate,
+          taxLabel: q.taxLabel || "HST",
         }
       : totals(
           d,
@@ -776,11 +829,13 @@ export const convertQuote = (id) =>
             },
           ],
           q.discount || 0,
+          q.taxRate ?? d.settings.hstRate,
         );
     const i = {
       ...calc,
       id: uid("i"),
       number: nextNumber(d, "invoices"),
+      taxLabel: q.taxLabel || "HST",
       customerId: q.customerId,
       customerName: q.customerName,
       date: today(),
@@ -801,12 +856,14 @@ export const saveSaleDeal = (o, lines) => transaction((d) => {
   const customer = resolveParty(d, "customer", {
     customerId: o.customerId, name: o.customerName, phone: o.phone, email: o.email, address: o.address,
   });
-  const calc = totals(d, lines, o.discount || 0);
+  const tax = selectedTax(d, o),
+    calc = totals(d, lines, o.discount || 0, tax.taxRate);
   if (dealType === "quote") {
     dateValue(o.validUntil);
     if (o.validUntil < o.date) throw Error("Valid-until date cannot precede quote date.");
     const q = {
       id: uid("q"), number: nextNumber(d, "quotes"), ...calc,
+      taxLabel: tax.taxLabel,
       customerId: customer.id, customerName: customer.name, personId: customer.personId,
       customerSnapshot: structuredClone(d.people.find((p) => p.id === customer.personId) || customer),
       date: o.date, validUntil: o.validUntil, notes: String(o.notes || ""), status: "Open",
@@ -820,6 +877,7 @@ export const saveSaleDeal = (o, lines) => transaction((d) => {
   dates({ date: o.date, dueDate });
   const i = {
     id: uid("i"), number: nextNumber(d, "invoices"), ...calc,
+    taxLabel: tax.taxLabel,
     date: o.date, dueDate, customerId: customer.id, customerName: customer.name,
     personId: customer.personId, notes: String(o.notes || ""), state: "draft", voided: false,
     currency: d.settings.currency,
@@ -846,6 +904,7 @@ export const savePurchaseDeal = (o, lines) => transaction((d) => {
     throw Error("This vendor bill number already exists for this vendor.");
   const i = {
     id: uid("pb"), number: nextNumber(d, "purchases"), ...totals(d, lines, 0),
+    taxLabel: d.settings.taxLabel || "HST",
     date: o.date, dueDate: o.dueDate || o.date, vendorId: vendor.id, vendorName: vendor.name,
     personId: vendor.personId, vendorBillNo, notes: String(o.notes || ""), state: "posted",
     currency: d.settings.currency, businessProfileId: captureBusinessProfile(d), businessSnapshot: { ...structuredClone(d.settings), logoDataUrl: "" },
@@ -874,6 +933,7 @@ export const convertQuoteToSale = (id) => transaction((d) => {
     id: uid("i"), number: nextNumber(d, "invoices"),
     items: structuredClone(q.items || []).map((x) => ({ ...x, lineId: uid("line") })),
     subtotal: q.subtotal, discount: q.discount, taxable: q.taxable, tax: q.tax, taxRate: q.taxRate, total: q.total,
+    taxLabel: q.taxLabel || "HST",
     customerId: q.customerId, customerName: q.customerName, personId: q.personId || "",
     date: today(), dueDate, state: "draft", voided: false, notes: `Converted from ${q.number}${q.notes ? " · " + q.notes : ""}`, currency: q.currency || d.settings.currency,
   };
@@ -888,12 +948,14 @@ export const saveSettings = (o) =>
   transaction((d) => {
     const s = { ...d.settings };
     for (const k of [
-      "businessName", "legalName", "hstNo", "address", "phone", "email", "invoicePrefix",
+      "businessName", "legalName", "hstNo", "taxLabel", "address", "phone", "email", "invoicePrefix",
       "quotePrefix", "returnPrefix", "purchasePrefix", "paymentInstructions", "invoiceTerms", "thankYouMessage",
     ]) s[k] = String(o[k] ?? s[k] ?? "").trim();
     textValue(s.businessName, "Business name");
     textValue(s.invoicePrefix, "Invoice prefix");
-    s.hstRate = number(o.hstRate, "HST rate", 0, 100);
+    textValue(s.taxLabel, "Tax name");
+    if (s.taxLabel.length > 50) throw Error("Tax name must be 50 characters or less.");
+    s.hstRate = percentage(o.hstRate);
     s.lowStockDefault = number(o.lowStockDefault, "Low-stock level", 0);
     s.nextInvoice = number(o.nextInvoice, "Next invoice number", 1, 1e9);
     s.defaultDueDays = number(o.defaultDueDays ?? s.defaultDueDays, "Default due days", 0, 3650);

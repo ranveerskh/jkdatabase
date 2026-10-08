@@ -50,6 +50,14 @@
                 <label>Discount</label
                 ><input name="discount" type="number" step=".01" value="0" />
               </div>
+              <div class="field">
+                <label>Tax name</label
+                ><input name="taxLabel" maxlength="50" required />
+              </div>
+              <div class="field">
+                <label>Tax rate (%)</label
+                ><input name="taxRate" type="number" min="0" max="100" step="any" required />
+              </div>
               <div class="field full">
                 <label>Description / scope</label
                 ><textarea name="description"></textarea>

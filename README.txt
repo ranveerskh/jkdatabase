@@ -43,12 +43,22 @@ Posted sales reduce stock, posted purchases increase stock, returns can restock,
 reverse eligible stock movements, and manual adjustments are recorded in the stock
 ledger. Negative stock is blocked by default unless enabled in Settings.
 
-Invoices
---------
-V7 uses a professional print layout with business logo/details, customer information,
-items, totals, paid/credit/balance information and terms. Final documents keep a
-business-profile snapshot/reference so later Settings changes do not rewrite historical
-invoice identity.
+Invoices and tax
+----------------
+Invoices print with a clean commercial layout: seller and business details, a bordered
+BILL TO section, invoice number/date, four-column item table, subtotal, named tax rate,
+total and prominent Amount Due. The browser Print / Save PDF flow remains available.
+Settings supplies the default tax name and rate; each sale or quote can override them.
+The chosen rate and label are saved on the document, quotes retain them when converted,
+and returns use the original invoice tax. Changing Settings does not rewrite past totals.
+
+Invoice management
+------------------
+Draft invoices can be edited, duplicated, finalised or deleted. Finalised invoices can
+be previewed, duplicated or voided. A final invoice with no linked payments, credits,
+returns or transfers can be edited through a controlled workflow that reverses and
+reposts stock and stores before/after values in audit history. Invoices with dependent
+financial history are protected and the action menu explains why.
 
 V6 upgrade
 ----------
@@ -87,4 +97,4 @@ The local app is structured so the business flow can later be backed by Firebase
 Firestore, Storage, multi-user roles, multi-device sync, cloud backup and subscriptions
 without redesigning the daily Sale/Purchase forms.
 
-Version: 7.0.0-local
+Version: 7.0.1-local
