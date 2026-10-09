@@ -1,4 +1,4 @@
-# JK Database V7.3.1 Cloud — verification report
+# JK Database V7.3.2 Cloud — verification report
 
 ## Automated business-logic suite
 
@@ -58,7 +58,7 @@ V7 keeps `jkDatabaseV7` as the browser recovery/migration source. The first clou
 can import normalized V7/V6 data without deleting the browser copy. Existing V6 data is
 not silently replaced, and migration preserves historical document totals.
 
-Build: `7.3.1-cloud`
+Build: `7.3.2-cloud`
 
 ## V7.3.1 browser and print verification
 
