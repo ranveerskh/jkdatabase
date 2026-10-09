@@ -19,8 +19,8 @@
         <div id="kioskCatalog" class="quick-sale-catalog" aria-label="Product catalog"></div>
       </div>
       <aside class="quick-sale-cart card" aria-label="Sale cart">
-        <h2>Current sale <span id="kioskCount" class="badge">0</span></h2>
-        <div id="kioskCart" class="quick-sale-cart-lines"><p class="empty">Tap a product to add it here.</p></div>
+        <h2>Current sale</h2>
+        <details id="kioskCartDetails" open><summary>Sale items · <span id="kioskCount">0</span></summary><div id="kioskCart" class="quick-sale-cart-lines"><p class="empty">Tap a product to add it here.</p></div></details>
         <div class="quick-sale-total"><span>Subtotal</span><b id="kioskSubtotal">$0.00</b></div>
         <p class="note">Tax and final total are calculated at checkout using your sale tax settings.</p>
         <button id="kioskCheckout" class="btn primary" type="button" disabled>Continue to checkout</button>

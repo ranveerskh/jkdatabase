@@ -18,8 +18,8 @@ export function initPage() {
       ["Tax charged", r.salesTax, "Less credits for returns"],
       ["Tax paid", r.purchaseTax + r.expenseTax, "On recorded purchases and expenses"],
       ["Estimated net tax", r.netTax, "Tax charged less recorded tax paid"],
-      ["To receive", ar, "Current customer balances"],
-      ["To pay", ap, "Current vendor balances"],
+      ["To Receive", ar, "Customer payments due"],
+      ["To Pay", ap, "Vendor payments due"],
     ];
     $("kpis").innerHTML = cards.map(([k,v,n]) => `<a class="card kpi kpi-link" href="pages/reports.html"><span>${esc(k)}</span><strong>${v == null ? "Unavailable" : money(v)}</strong><em>${esc(n)}</em></a>`).join("");
     $("recentSales").innerHTML = rows(invoices.slice(-6).reverse().map((x) => `<p class="statline"><span><b>${esc(x.customerName)}</b><br><small class="muted">${esc(x.number)} · ${esc(x.date)}</small></span><b>${money(x.total)}</b></p>`), "No sales yet.");

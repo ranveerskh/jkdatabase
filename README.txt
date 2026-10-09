@@ -1,4 +1,4 @@
-JK Database V7.3.2 Cloud Edition
+JK Database V7.3.3 Cloud Edition
 ==============================
 
 What V7 is
@@ -136,7 +136,7 @@ Not in this release
 Firebase Storage for uploaded files, Manager/Employee roles, real-time live update
 listeners, server-backed audit history and subscription billing are not enabled yet.
 
-Version: 7.3.2-cloud
+Version: 7.3.3-cloud
 
 V7.3.0 kiosk and form-submission hotfix
 ---------------------------------
@@ -162,3 +162,5 @@ V7.3.1 adds a dedicated Quick Sale catalog page with a searchable photo grid, sc
 V7.3.2 fixes the reset button's missing confirmation and navigation imports.
 For browser tests: npx playwright install chromium, then npm run test:ui. These tests
 use isolated Firebase fixtures; they never write records to the production project.
+
+V7.3.3 simplifies payment-report labels, compacts phone/tablet dashboards and record rows, adds direct mobile Home/Quick Sale shortcuts, and keeps mobile kiosk checkout accessible with expandable sale items. Verified in isolated Chromium at 320/390/768/1024/1440px; 23 browser checks pass.

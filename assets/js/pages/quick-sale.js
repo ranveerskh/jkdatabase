@@ -1,6 +1,7 @@
 import { $, db, esc, money, toast, navigateTo } from "../app.js";
 
 export function initPage({ signal } = {}) {
+  $("kioskCartDetails").open = !matchMedia("(max-width: 700px)").matches;
   const cart = new Map();
   function canSell(product) {
     return db.settings.stockTracking === false || db.settings.allowNegativeStock || Number(product.qty) > 0;

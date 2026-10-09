@@ -195,7 +195,7 @@ export function boot() {
     ["DAILY WORK", [["Home", "index.html"], ["Quick Sale", "quick-sale.html"], ["Sales & Invoices", "sales.html"], ["Purchases & Investments", "purchases.html"], ["Customers & Vendors", "people.html"], ["Product Catalog", "inventory.html"], ["Expenses", "expenses.html"], ["Reports", "reports.html"], ["Settings", "settings.html"]]],
   ];
   document.querySelector(".sidebar").innerHTML =
-    '<div class="brand"><b>JK</b>JK Database<small>Version 7.3.2 · Cloud edition</small></div><nav class="nav" aria-label="Main navigation">' +
+    '<div class="brand"><b>JK</b>JK Database<small>Version 7.3.3 · Cloud edition</small></div><nav class="nav" aria-label="Main navigation">' +
     groups
       .map(
         ([label, links]) =>
@@ -220,6 +220,11 @@ export function boot() {
   const shade = document.createElement("div");
   shade.className = "menu-shade";
   document.body.append(menuButton, shade);
+  const shortcuts = document.createElement("nav");
+  shortcuts.className = "mobile-shortcuts";
+  shortcuts.setAttribute("aria-label", "Quick navigation");
+  shortcuts.innerHTML = `<a href="${new URL("index.html", root)}">Home</a><a href="${new URL("pages/quick-sale.html", root)}">Quick Sale</a>`;
+  document.body.append(shortcuts);
   const sidebar = document.querySelector(".sidebar");
   const nav = document.querySelector(".sidebar .nav");
   nav.id = "main-navigation";

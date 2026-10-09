@@ -120,6 +120,50 @@ try {
     assert.equal(await page.locator("#rows .quantity-combined").nth(1).inputValue(), "1 kg");
     await closeSale();
   });
+  await check("compact summaries, payment labels, and kiosk checkout fit phones and tablets", async () => {
+    await page.evaluate(async () => {
+      const { db } = await import("/assets/js/repositories/db.js");
+      db.products.push(...Array.from({ length: 12 }, (_, i) => ({ id: `density-${i}`, name: `Catalog Product ${i + 1}`, sku: `CAT-${i + 1}`, cost: 5, price: 12 + i, unit: "pcs", qty: 0 })));
+    });
+    for (const [label, width, height, columns] of [["small-phone",320,740,2],["phone",390,844,2],["tablet",768,1024,3],["wide-tablet",1024,768,4],["desktop",1440,1000,4]]) {
+      await page.setViewportSize({ width, height });
+      await go("/index.html");
+      await page.waitForFunction(() => innerWidth > 1024 || document.querySelector(".sidebar").getBoundingClientRect().right <= 0);
+      await page.evaluate(() => document.getElementById("toast")?.classList.remove("show"));
+      const metrics = await page.locator("#kpis").evaluate((node) => ({
+        columns: getComputedStyle(node).gridTemplateColumns.split(" ").length,
+        visible: [...node.children].filter((card) => card.getBoundingClientRect().bottom <= innerHeight).length,
+      }));
+      assert.equal(metrics.columns, columns);
+      if (width < 700) assert.ok(metrics.visible >= 6, `${label}: fewer than six summary cards fit on screen`);
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+      await page.screenshot({ path: resolve(output, `${label}-home-compact.png`) });
+      await go("/pages/reports.html");
+      await page.getByRole("heading", { name: "Customer Payments Due", exact: true }).waitFor();
+      await page.getByRole("heading", { name: "Vendor Payments Due", exact: true }).waitFor();
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+      await page.screenshot({ path: resolve(output, `${label}-reports-compact.png`), fullPage: true });
+      await go("/pages/quick-sale.html");
+      assert.equal(await page.locator("[data-kiosk-product]").count(), 14);
+      await page.locator("[data-kiosk-product='widget']").click();
+      assert.equal(await page.locator("#kioskCheckout").isEnabled(), true);
+      if (width < 700) {
+        const checkout = await page.locator("#kioskCheckout").boundingBox();
+        assert.ok(checkout.y >= 0 && checkout.y + checkout.height <= height);
+        await page.locator("#kioskCartDetails summary").click();
+        await page.locator("#kioskCart [data-kiosk-qty='1']").click();
+        assert.equal(await page.locator("#kioskCount").textContent(), "2");
+      }
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+      await page.screenshot({ path: resolve(output, `${label}-quick-sale-compact.png`) });
+    }
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.evaluate(async () => {
+      const { db } = await import("/assets/js/repositories/db.js");
+      db.products = db.products.filter((p) => !p.id.startsWith("density-"));
+    });
+    await go("/pages/sales.html");
+  });
   await check("sale/quote dates and payments toggle correctly; UI copy is English", async () => {
     await page.locator("#newSale").click();
     assert.equal(await page.locator("#validWrap").isVisible(), false);
@@ -195,7 +239,7 @@ try {
   await check("normal navigation reuses Auth, cloud data and one page shell", async () => {
     await page.getByRole("link", { name: "Purchases & Investments", exact: true }).click();
     await page.locator("#newPurchase").waitFor();
-    await page.getByRole("link", { name: "Sales", exact: true }).click();
+    await page.getByRole("link", { name: "Sales & Invoices", exact: true }).click();
     await page.locator("#newSale").waitFor();
     assert.equal(await page.evaluate(() => window.__navigationMarker), "same-session");
     assert.equal(await page.evaluate(() => window.__testCloud.metrics.membershipReads), 1);
@@ -208,7 +252,8 @@ try {
     await page.getByRole("link", { name: "New Sale" }).click();
     await page.locator("#dlg").waitFor({ state: "visible" });
     await closeSale();
-    await page.getByRole("link", { name: "Create Product" }).click();
+    await go("/index.html");
+    await page.getByRole("link", { name: "Add Product", exact: true }).click();
     await page.locator("#dlg").waitFor({ state: "visible" });
     await page.locator('#dlg [data-click="close"]').click();
     for (const [label, width, height] of [["phone", 390, 844], ["ipad", 768, 1024]]) {
@@ -291,7 +336,7 @@ try {
     await page.locator("#returnHint").waitFor();
     await page.locator('#form [name="qty"]').fill("1");
     await page.locator('#form [name="reason"]').fill("Returned product");
-    await page.locator('#form [name="restock"]').selectOption("yes");
+    assert.equal(await page.locator('#form [name="restock"]').isVisible(), false);
     await page.locator("#form button.btn.primary").click();
     await page.locator("#list tbody tr").waitFor();
     const data = await db();
@@ -299,7 +344,7 @@ try {
     assert.equal(data.returns[0].amount, 10.5);
     assert.equal(data.products.find((product) => product.id === "widget").qty, 10);
   });
-  await check("eligible unpaid invoice cancellation restores stock and retains history", async () => {
+  await check("eligible unpaid invoice cancellation leaves catalog quantities unchanged and retains history", async () => {
     await go("/pages/sales.html");
     await fillSale("unpaid");
     await page.locator('#form button[value="save"]').click();
@@ -342,6 +387,8 @@ try {
     await page.locator(".typed-delete-dialog [data-confirm]").click();
     await page.getByText("Test Box Updated", { exact: true }).waitFor({ state: "detached" });
     await page.locator("#list tbody tr").filter({ hasText: "Widget" }).getByRole("button", { name: "Delete", exact: true }).click();
+    await page.locator("#typed-delete-word").fill("DELETE");
+    await page.locator(".typed-delete-dialog [data-confirm]").click();
     await page.locator("#toast.show").waitFor();
     assert.equal((await db()).products.find((product) => product.id === "widget").qty, 10);
   });

@@ -19,6 +19,7 @@ import { report } from "../services/report-service.js";
 export function initPage({ signal } = {}) {
 const stat = (k, v) =>
   `<div class="statline"><span>${esc(k)}</span><b>${v == null ? "Cost unavailable" : money(v)}</b></div>`;
+const paymentAge = (bucket) => bucket === "Current" ? "Not overdue" : `${bucket} days overdue`;
 const grouped = (m) =>
   [...m]
     .sort((a, b) => b[1] - a[1])
@@ -36,8 +37,8 @@ function render() {
       ["Expenses", r.netExpenses + r.customPurchases],
       ["Net profit estimate", r.netProfit],
       ["Tax charged", r.salesTax],
-      ["Amount to receive", sum(invoices, invoiceBalance)],
-      ["Amount to pay", sum(purchases, purchaseBalance)],
+      ["To Receive", sum(invoices, invoiceBalance)],
+      ["To Pay", sum(purchases, purchaseBalance)],
       ["Customer credits", sum(invoices, (i)=>creditBalance(i))],
       ["Vendor advances", sum(purchases, (i)=>creditBalance(i,"vendor"))],
     ]
@@ -58,12 +59,12 @@ function render() {
       "</p>";
     $("ar").innerHTML =
       Object.entries(arAging())
-        .map(([k, v]) => stat(k, v))
+        .map(([k, v]) => stat(paymentAge(k), v))
         .join("") +
       '<p class="note">Current balances, not a historical snapshot.</p>';
     $("ap").innerHTML =
       Object.entries(apAging())
-        .map(([k, v]) => stat(k, v))
+        .map(([k, v]) => stat(paymentAge(k), v))
         .join("") +
       '<p class="note">Current balances; vendor advances shown in Vendor Payments.</p>';
     $("inventory").innerHTML = stat("Inventory cost recorded in period", r.purchaseInvestment) + stat("Shipping recorded in period", r.shipping) + '<p class="note">This is money invested over the selected dates. The catalog does not track on-hand quantities.</p>';
