@@ -13,15 +13,15 @@
       <main class="content">
         <div class="topbar">
           <div>
-            <h1>Inventory</h1>
-            <div class="sub">Products, current stock, and stock adjustments.</div>
+            <h1>Product Catalog</h1>
+            <div class="sub">Products for your sales screen, with vendor and selling prices.</div>
           </div>
           <div class="actions">
             <label class="btn">Import CSV<input id="importProductsPage" type="file" accept=".csv" hidden></label><button class="btn primary" data-click="add">+ Create product</button>
           </div>
         </div>
         <div class="toolbar">
-          <input class="search" id="search" placeholder="Search inventory..." />
+          <input class="search" id="search" placeholder="Search products..." />
           <div class="note" id="count"></div>
         </div>
         <div id="list"></div>
@@ -32,7 +32,7 @@
             <input type="hidden" name="id" />
             <div class="formgrid">
               <div class="field">
-                <label>SKU</label><input name="sku" type="text" />
+            <label>SKU (optional)</label><input name="sku" type="text" />
               </div>
               <div class="field"><label>Barcode (optional)</label><input name="barcode" type="text" autocomplete="off" /></div>
               <div class="field"><label>Product photo (optional)</label><input name="imageFile" type="file" accept="image/*" /><small class="hint">A small photo appears on the sale screen.</small><img id="productImagePreview" class="product-image-preview" hidden alt="Product preview" /></div>
@@ -41,14 +41,10 @@
                 ><input name="name" type="text" />
               </div>
               <div class="field">
-                <label>Stock quantity and unit</label><span class="quantity-control product-quantity-control"><input name="qty" aria-label="Stock quantity" type="number" step=".01" /><input name="unit" aria-label="Unit used for stock" type="text" value="pcs" placeholder="pcs" maxlength="50" /></span>
+                <label>Vendor</label><select name="vendorId" id="productVendor"><option value="">Choose vendor (optional)</option></select>
               </div>
               <div class="field">
-                <label>Low-stock threshold (same unit)</label
-                ><input name="low" type="number" step=".01" />
-              </div>
-              <div class="field">
-                <label>Cost price</label
+                <label>Vendor price / unit cost</label
                 ><input name="cost" type="number" step=".01" />
               </div>
               <div class="field">

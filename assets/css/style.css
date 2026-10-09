@@ -959,6 +959,7 @@ dialog {
 .line-field input[readonly] { background: #f4f6f9; color: #475467; }
 .quantity-control { display: flex; align-items: center; min-width: 0; border: 1px solid #d0d5dd; border-radius: 8px; overflow: hidden; background: white; }
 .quantity-control input { min-width: 0; border: 0 !important; border-radius: 0 !important; }
+.quantity-control .quantity-combined { flex: 1 1 auto; width: 100%; text-align: left; }
 .quantity-control .qty { flex: 1 1 auto; text-align: right; }
 .quantity-control .unit { flex: 0 1 76px; width: 76px; border-left: 1px solid #e3e8ef !important; background: #f8fafc; text-align: center; padding-inline: 5px; }
 .line-field .quantity-control input { border: 0; border-radius: 0; box-shadow: none; }

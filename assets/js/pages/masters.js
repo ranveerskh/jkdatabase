@@ -15,6 +15,8 @@ import { compressProductImage } from "../core/product-image.js";
 import { refreshPage } from "../services/navigation.js";
 export function masterPage(type) {
   const form = $("form");
+  if (type === "products" && $("productVendor"))
+    $("productVendor").innerHTML = '<option value="">Choose vendor (optional)</option>' + db.vendors.map((v) => `<option value="${esc(v.id)}">${esc(v.name)}</option>`).join("");
   let productImage = "";
   const singular = {
     customers: "Customer",
@@ -41,7 +43,7 @@ export function masterPage(type) {
   $("count").textContent = `${db[type].length} records`;
   const headers =
     type === "products"
-      ? ["SKU / Barcode", "Product", "Quantity / unit", "Cost per unit", "Price per unit", "Status", ""]
+      ? ["SKU / Barcode", "Product", "Vendor", "Vendor price", "Sale price", ""]
       : ["Name", "Contact", "Phone", "Email", ""];
   $("list").innerHTML = table(
     headers,
@@ -49,7 +51,7 @@ export function masterPage(type) {
       (x) =>
         "<tr>" +
         (type === "products"
-          ? `<td>${esc(x.sku)}<small>${esc(x.barcode || "")}</small></td><td>${esc(x.name)}</td><td>${esc(x.qty)} ${esc(x.unit || "pcs")}</td><td>${money(x.cost)}</td><td>${money(x.price)}</td><td>${Number(x.qty) <= Number(x.low ?? db.settings.lowStockDefault) ? "Low stock" : "In stock"}</td>`
+          ? `<td>${esc(x.sku || x.barcode || "—")}<small>${esc(x.sku && x.barcode ? x.barcode : "")}</small></td><td>${esc(x.name)}</td><td>${esc(db.vendors.find((v) => v.id === x.vendorId)?.name || x.vendorName || "—")}</td><td>${money(x.cost)}</td><td>${money(x.price)}</td>`
           : `<td>${esc(x.name)}</td><td>${esc(x.contact)}</td><td>${esc(x.phone)}</td><td>${esc(x.email)}</td>`) +
         `<td>${button("Edit", "edit", x.id)} ${button("Delete", "delete", x.id, "danger")}</td></tr>`,
     ),

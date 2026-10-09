@@ -81,8 +81,8 @@ function open(i) {
   const finalEdit = !!i && i.state !== "draft";
   $("modalTitle").textContent = i ? `Edit ${i.number}` : "New Sales Invoice";
   $("formHint").textContent = finalEdit
-    ? "This invoice has no linked payments, returns, credits or transfers. Saving will reverse and repost its stock movements and retain the old version in audit history."
-    : "Drafts do not change stock. Finalising records the invoice and stock movement.";
+    ? "This invoice has no linked payments, returns, credits or transfers. Saving will preserve the prior version in audit history."
+    : "Draft invoices can be edited or deleted. Finalising records the sale and locks its accounting links.";
   form.querySelector('button[value="draft"]').hidden = finalEdit;
   form.querySelector('button[value="finalise"]').textContent = finalEdit ? "Save Changes" : "Finalise Invoice";
   lines.set(i?.items);
@@ -103,11 +103,11 @@ actions(list, {
   },
   duplicate: (id) => run(() => duplicateInvoice(id)),
   finalise: (id) => {
-    if (confirm("Finalise this draft and reduce stock?"))
+    if (confirm("Finalise this draft invoice?"))
       run(() => finaliseInvoice(id));
   },
   void: (id) => {
-    if (confirm("Cancel this unpaid invoice? Its stock will be restored and its outstanding balance removed. The invoice will remain in history."))
+    if (confirm("Cancel this unpaid invoice? Its outstanding balance will be removed. The invoice will remain in history."))
       run(() => voidDocument("invoices", id));
   },
   delete: (id) => {

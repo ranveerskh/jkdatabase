@@ -58,7 +58,7 @@
 
           <section class="form-section">
             <h3>4. Products</h3>
-            <p class="section-help">Add products to this sale. Their stock goes down when you save. For a service or one-time charge, leave Product unselected and enter a description.</p>
+            <p class="section-help">Tap products from the catalog, or add a one-time line for this invoice.</p>
 
             <div class="product-kiosk" aria-label="Product quick sale">
               <div class="product-kiosk-tools">
@@ -70,7 +70,7 @@
             </div>
 
             <div id="rows"></div>
-            <div class="actions"><button type="button" class="btn" id="addRow">+ Add line to this sale</button><button type="button" class="btn" id="quickProduct">+ Create inventory product</button></div>
+            <div class="actions"><button type="button" class="btn" id="addRow">+ Add line to this sale</button><button type="button" class="btn" id="quickProduct">+ Add product to catalog</button></div>
             <div class="tax-discount-row"><div class="field"><label>Discount</label><input name="discount" type="number" step=".01" min="0" value="0" /></div><div class="field"><label>Tax name</label><input name="taxLabel" maxlength="50" required /></div><div class="field"><label>Tax rate (%)</label><input name="taxRate" type="number" min="0" max="100" step="any" required /></div></div>
             <p class="section-help">The default comes from Settings. This rate and tax name are saved with this sale or quote.</p>
             <div class="totals"><div><span>Subtotal</span><b id="sub">$0.00</b></div><div><span>Discount</span><b id="disc">$0.00</b></div><div><span id="taxTitle">HST</span><b id="tax">$0.00</b></div><div class="grand"><span>Grand total</span><span id="total">$0.00</span></div></div>
@@ -108,8 +108,8 @@
 
     <dialog id="productDlg">
       <form id="productForm" class="modal"><datalist id="productUnits"><option value="pcs"></option><option value="box"></option><option value="kg"></option><option value="litre"></option><option value="metre"></option></datalist>
-        <h2>Create inventory product</h2><p class="hint">It will be added to this sale automatically. Enter current stock before this sale; saving the sale will subtract its quantity.</p>
-        <div class="formgrid"><div class="field"><label>Product name</label><input name="name" required /></div><div class="field"><label>SKU (optional)</label><input name="sku" /></div><div class="field"><label>Barcode (optional)</label><input name="barcode" /></div><div class="field"><label>Product photo (optional)</label><input name="imageFile" type="file" accept="image/*" /><img id="quickProductImagePreview" class="product-image-preview" hidden alt="Product preview" /></div><div class="field"><label>Stock quantity and unit</label><span class="quantity-control product-quantity-control"><input name="qty" aria-label="Stock quantity" type="number" step=".01" value="0" /><input name="unit" aria-label="Unit used for stock" list="productUnits" value="pcs" placeholder="pcs" maxlength="50" /></span></div><div class="field"><label>Cost per unit</label><input name="cost" type="number" step=".01" value="0" /></div><div class="field"><label>Selling price per unit</label><input name="price" type="number" step=".01" value="0" /></div><div class="field"><label>Low-stock level (same unit)</label><input name="low" type="number" step=".01" value="0" /></div></div>
+        <h2>Add product</h2><p class="hint">Save it once to your catalog, then use it on this invoice.</p>
+        <div class="formgrid"><div class="field"><label>Product name</label><input name="name" required /></div><div class="field"><label>SKU (optional)</label><input name="sku" /></div><div class="field"><label>Barcode (optional)</label><input name="barcode" /></div><div class="field"><label>Product photo (optional)</label><input name="imageFile" type="file" accept="image/*" /><img id="quickProductImagePreview" class="product-image-preview" hidden alt="Product preview" /></div><div class="field"><label>Vendor cost</label><input name="cost" type="number" step=".01" value="0" /></div><div class="field"><label>Selling price</label><input name="price" type="number" step=".01" value="0" /></div></div>
         <div class="footer"><button type="button" class="btn" id="productCancel">Cancel</button><button class="btn primary">Save Product</button></div>
       </form>
     </dialog>

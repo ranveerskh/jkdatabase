@@ -25,6 +25,7 @@ const input = () => ({ date, dueDate: date, customerId: c, discount: 0 });
 const line = (qty = 1) => [
   { productId: p, qty, price: 10, description: "Widget" },
 ];
+const legacyBlank = () => { const d = storage.blankDB(); d.settings.stockTracking = true; return d; };
 const sale = async (qty = 1, post = true) =>
   B.saveInvoice(input(), line(qty), post);
 const printService = await import("../assets/js/services/print-service.js");
@@ -45,7 +46,10 @@ function previewWindow() {
 }
 beforeEach(async () => {
   failWrites = false;
-  await repo.replaceDB(storage.blankDB());
+  // Most tests exercise V7 legacy stock accounting; dedicated no-stock tests
+  // switch this setting off explicitly to cover the new normal workflow.
+  const fresh = storage.blankDB(); fresh.settings.stockTracking = true;
+  await repo.replaceDB(fresh);
   c = await B.saveMaster("customers", {
     name: "Customer",
     email: "a@example.test",
@@ -604,7 +608,7 @@ test("legacy stock preserved with reconciliation marker and no fabricated profit
 
 
 test("V7 one-save sale auto-creates person, customer, payment and stock movement", async () => {
-  await repo.replaceDB(storage.blankDB());
+  await repo.replaceDB(legacyBlank());
   const prod = await B.saveMaster("products", { name: "V7 Widget", sku: "V7W", qty: 5, cost: 2, price: 10, low: 1 });
   const result = await B.saveSaleDeal({
     dealType: "sale", customerName: "Fresh Customer", phone: "519-555-1111", email: "fresh@example.test",
@@ -622,7 +626,7 @@ test("V7 one-save sale auto-creates person, customer, payment and stock movement
 });
 
 test("V7 quote saves items without stock or payment and converts once to posted sale", async () => {
-  await repo.replaceDB(storage.blankDB());
+  await repo.replaceDB(legacyBlank());
   const prod = await B.saveMaster("products", { name: "Quoted", sku: "Q1", qty: 3, cost: 1, price: 10, low: 1 });
   const q = await B.saveSaleDeal({ dealType: "quote", customerName: "Quote Person", date, validUntil: date, discount: 0 }, [{ productId: prod, qty: 2, price: 10, description: "Quoted" }]);
   assert.equal(q.kind, "quote");
@@ -646,7 +650,7 @@ test("product SKU and barcode are unique and optional product images persist", a
 });
 
 test("V7 purchase auto-creates vendor and records partial payment atomically", async () => {
-  await repo.replaceDB(storage.blankDB());
+  await repo.replaceDB(legacyBlank());
   const prod = await B.saveMaster("products", { name: "Bought", sku: "B1", qty: 1, cost: 5, price: 10, low: 1 });
   const id = await B.savePurchaseDeal({ vendorName: "New Vendor", phone: "2265553333", date, dueDate: date, paymentPreset: "partial", paymentAmount: 5, paymentDate: date, paymentMethod: "Cash" }, [{ productId: prod, qty: 2, price: 5, description: "Bought" }]);
   assert.ok(id);
@@ -677,6 +681,53 @@ test("V7 same phone/email reuses one People profile across customer and vendor r
   assert.equal(repo.db.people.length, 1);
   assert.deepEqual(new Set(repo.db.people[0].roles), new Set(["customer","vendor"]));
   assert.equal(repo.db.customers[0].personId, repo.db.vendors[0].personId);
+});
+
+test("no-stock sales preserve cost and tax while returns reverse profit without changing quantities", async () => {
+  await repo.replaceDB(storage.blankDB());
+  const prod = await B.saveMaster("products", { name: "Catalog item", sku: "CAT1", qty: 50, cost: 4, price: 10 });
+  const customerId = await B.saveMaster("customers", { name: "No Stock Customer" });
+  assert.equal(repo.db.products[0].qty, 0);
+  assert.equal(repo.db.stockLedger.length, 0);
+  const id = await B.saveInvoice({ ...input(), customerId, taxRate: 5, taxLabel: "GST" }, [{ productId: prod, qty: 2, price: 10, description: "Catalog item" }], true);
+  const invoice = repo.db.invoices.find((x) => x.id === id);
+  assert.equal(invoice.stockTracked, false);
+  assert.equal(invoice.items[0].unitCost, 4);
+  assert.equal(repo.db.products[0].qty, 0);
+  await B.saveReturn({ invoiceId: id, lineId: invoice.items[0].lineId, qty: 1, date, restock: "yes", reason: "Customer return" });
+  assert.equal(repo.db.returns[0].restock, "no");
+  assert.equal(repo.db.returns[0].costReversed, true);
+  assert.equal(repo.db.products[0].qty, 0);
+  const r = R.report(date, date);
+  assert.equal(r.grossProfit, 6);
+  assert.equal(r.salesTax, 0.5);
+  assert.equal(r.productPerformance.get(prod).profit, 6);
+});
+
+test("no-stock investment records cost, shipping, tax and vendor payment without stock movements", async () => {
+  await repo.replaceDB(storage.blankDB());
+  const id = await B.savePurchaseDeal({ vendorName: "Supplier", date, dueDate: date, inventoryCost: 100, shipping: 15, taxLabel: "GST", taxRate: 5, taxAmount: 5.75, paymentPreset: "full" }, []);
+  const purchase = repo.db.purchases.find((x) => x.id === id);
+  assert.equal(purchase.kind, "investment");
+  assert.equal(purchase.inventoryCost, 100);
+  assert.equal(purchase.shipping, 15);
+  assert.equal(purchase.taxRate, 5);
+  assert.equal(purchase.total, 120.75);
+  assert.equal(repo.db.stockLedger.length, 0);
+  assert.equal(R.report(date, date).purchaseInvestment, 100);
+});
+
+test("no-stock quote conversion keeps its custom tax and does not add quantity movements", async () => {
+  await repo.replaceDB(storage.blankDB());
+  const prod = await B.saveMaster("products", { name: "Quote catalog item", sku: "QCAT", cost: 3, price: 12 });
+  const quote = await B.saveSaleDeal({ dealType: "quote", customerName: "Quote Buyer", date, validUntil: date, taxLabel: "GST", taxRate: 5 }, [{ productId: prod, qty: 2, price: 12, description: "Quote catalog item" }]);
+  const invoiceId = await B.convertQuoteToSale(quote.id);
+  const invoice = repo.db.invoices.find((x) => x.id === invoiceId);
+  assert.equal(invoice.taxRate, 5);
+  assert.equal(invoice.taxLabel, "GST");
+  assert.equal(invoice.stockTracked, false);
+  assert.equal(repo.db.stockLedger.length, 0);
+  assert.equal(repo.db.products[0].qty, 0);
 });
 
 test("V7 unsafe CSV formula prefixes reject the entire import", async () => {

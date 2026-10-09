@@ -19,7 +19,7 @@ export function report(from, to, d = db) {
     expenseTax = round(sum(exp, (x) => x.tax));
   const missingCost =
       inv.some((i) => i.items.some((x) => x.unitCost == null)) ||
-      ret.some((r) => r.restock === "yes" && r.unitCost == null),
+      ret.some((r) => r.costReversed && r.unitCost == null),
     cogs = missingCost
       ? null
       : round(
@@ -27,7 +27,7 @@ export function report(from, to, d = db) {
             sum(i.items, (x) => Number(x.qty) * Number(x.unitCost)),
           ) -
             sum(
-              ret.filter((r) => r.restock === "yes"),
+              ret.filter((r) => r.costReversed || r.restock === "yes"),
               (r) => r.qty * r.unitCost,
             ),
         ),
@@ -44,13 +44,13 @@ export function report(from, to, d = db) {
       cogs == null
         ? null
         : round(netSales - cogs - netExpenses - customPurchases);
-  const products = new Map(),
+  const products = new Map(), productPerformance = new Map(),
     customers = new Map(),
     categories = new Map();
   const add = (m, k, v) => m.set(k, round((m.get(k) || 0) + Number(v || 0)));
   for (const i of inv) {
     add(customers, i.customerName, i.subtotal - Number(i.discount || 0));
-    for (const x of i.items)
+    for (const x of i.items) {
       add(
         products,
         x.description,
@@ -58,11 +58,21 @@ export function report(from, to, d = db) {
           (x.total * (i.subtotal - Number(i.discount || 0))) /
             (i.subtotal || 1),
       );
+      const key = x.productId || x.description;
+      const row = productPerformance.get(key) || { name: x.description, units: 0, revenue: 0, cost: 0, profit: 0 };
+      row.units = round(row.units + Number(x.qty || 0));
+      row.revenue = round(row.revenue + Number(x.net ?? x.total ?? 0));
+      row.cost = round(row.cost + Number(x.qty || 0) * Number(x.unitCost || 0));
+      row.profit = round(row.revenue - row.cost);
+      productPerformance.set(key, row);
+    }
   }
   for (const r of ret) {
     const i = d.invoices.find((i) => i.id === r.invoiceId);
     add(customers, i?.customerName || "Unknown customer", -r.net);
     add(products, r.description || "Legacy item", -r.net);
+    const key = r.productId || r.description || "Legacy item", row = productPerformance.get(key);
+    if (row) { row.units = round(row.units - Number(r.qty || 0)); row.revenue = round(row.revenue - Number(r.net || 0)); if (r.costReversed || r.restock === "yes") row.cost = round(row.cost - Number(r.qty || 0) * Number(r.unitCost || 0)); row.profit = round(row.revenue - row.cost); }
   }
   for (const x of exp)
     add(categories, x.category, x.amount - Number(x.tax || 0));
@@ -72,6 +82,8 @@ export function report(from, to, d = db) {
     ret,
     exp,
     netSales,
+    grossProfit: cogs == null ? null : round(netSales - cogs),
+    netProfit: estimate,
     salesTax,
     purchaseTax,
     expenseTax,
@@ -81,7 +93,10 @@ export function report(from, to, d = db) {
     netExpenses,
     estimate,
     purchases: round(sum(pur, (p) => p.subtotal)),
+    purchaseInvestment: round(sum(pur, (p) => p.inventoryCost ?? p.subtotal ?? 0)),
+    shipping: round(sum(pur, (p) => p.shipping || 0)),
     products,
+    productPerformance,
     customers,
     categories,
     legacyReturns: d.returns.filter((r) => r.legacy && within(r)).length,

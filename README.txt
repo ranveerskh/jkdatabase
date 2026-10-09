@@ -1,11 +1,13 @@
-JK Database V7.2.3 Cloud Edition
+JK Database V7.3.0 Cloud Edition
 ==============================
 
 What V7 is
 ----------
-JK Database V7.2 is a Firebase-authenticated business app built around one rule:
+JK Database V7.3 is a Firebase-authenticated business app built around one rule:
 enter the deal once, then let the app update the related customer/vendor, document,
-payment, balance, stock ledger, audit history and dashboard automatically.
+payment, balance, audit history and dashboard automatically. New sales use the product
+catalog without on-hand quantity tracking. Existing V7 stock and ledger history is
+preserved. Purchases can record inventory cost, shipping and tax as investments.
 
 Start
 -----
@@ -134,9 +136,9 @@ Not in this release
 Firebase Storage for uploaded files, Manager/Employee roles, real-time live update
 listeners, server-backed audit history and subscription billing are not enabled yet.
 
-Version: 7.2.3-cloud
+Version: 7.3.0-cloud
 
-V7.2.3 kiosk and form-submission hotfix
+V7.3.0 kiosk and form-submission hotfix
 ---------------------------------
 Normal page navigation and successful saves keep the signed-in session and loaded
 cloud database. Firebase Auth and membership are checked when opening the app;
@@ -155,6 +157,6 @@ Developer verification
 npm test: 51 business, printing, migration and cloud helper tests.
 npm run check: JavaScript syntax, HTML links and duplicate IDs.
 npm run build: static Netlify output.
-V7.2.3 adds a product kiosk to Sales: search by name/SKU/barcode, tap to add, or scan/type a barcode. Optional compressed product photos appear as sale tiles. Blank payment references default to the invoice number.
+V7.3.0 adds a product kiosk to Sales: search by name/SKU/barcode, tap to add, or scan/type a barcode. Optional compressed product photos appear as sale tiles. Blank payment references default to the invoice number.
 For browser tests: npx playwright install chromium, then npm run test:ui. These tests
 use isolated Firebase fixtures; they never write records to the production project.

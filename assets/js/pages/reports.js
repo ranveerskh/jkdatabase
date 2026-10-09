@@ -13,7 +13,7 @@ import {
   purchaseBalance,
   creditBalance,
 } from "../app.js";
-import { localDate } from "../core/utils.js";
+import { setupDateFilter } from "../core/date-filter.js";
 import { report } from "../services/report-service.js";
 
 export function initPage({ signal } = {}) {
@@ -24,19 +24,18 @@ const grouped = (m) =>
     .sort((a, b) => b[1] - a[1])
     .map(([k, v]) => stat(k, v))
     .join("") || '<div class="empty">No data</div>';
-$("from").value = localDate(
-  new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-);
-$("to").value = today();
 function render() {
   try {
     const r = report($("from").value, $("to").value);
     const invoices=db.invoices.filter(posted), purchases=db.purchases.filter(posted);
     $("cards").innerHTML = [
       ["Sales", r.netSales],
-      ["Purchases", r.purchases],
+      ["Inventory invested", r.purchaseInvestment],
+      ["Shipping paid", r.shipping],
+      ["Gross profit", r.grossProfit],
       ["Expenses", r.netExpenses + r.customPurchases],
-      ["Operating Estimate", r.estimate],
+      ["Net profit estimate", r.netProfit],
+      ["Tax charged", r.salesTax],
       ["Amount to receive", sum(invoices, invoiceBalance)],
       ["Amount to pay", sum(purchases, purchaseBalance)],
       ["Customer credits", sum(invoices, (i)=>creditBalance(i))],
@@ -67,34 +66,14 @@ function render() {
         .map(([k, v]) => stat(k, v))
         .join("") +
       '<p class="note">Current balances; vendor advances shown in Vendor Payments.</p>';
-    $("inventory").innerHTML =
-      stat(
-        "Current standard-cost value",
-        sum(db.products, (x) => x.qty * x.cost),
-      ) +
-      stat(
-        "Current retail value",
-        sum(db.products, (x) => x.qty * x.price),
-      ) +
-      '<p class="note">Standard cost is maintained in Inventory and saved on each finalised sale. This is not FIFO or weighted-average accounting. Custom/service items carry zero stock cost; record related costs as expenses. Imported sales without costs make profit unavailable.</p>';
-    $("byProduct").innerHTML = grouped(r.products);
+    $("inventory").innerHTML = stat("Inventory cost recorded in period", r.purchaseInvestment) + stat("Shipping recorded in period", r.shipping) + '<p class="note">This is money invested over the selected dates. The catalog does not track on-hand quantities.</p>';
+    $("byProduct").innerHTML = [...r.productPerformance.values()].sort((a,b)=>b.profit-a.profit).map((x)=>`<p class="statline"><span><b>${esc(x.name)}</b><br><small class="muted">${x.units} sold · cost ${money(x.cost)}</small></span><b>${money(x.profit)}</b></p>`).join("") || '<div class="empty">No product sales in this period.</div>';
     $("byCustomer").innerHTML = grouped(r.customers);
     $("byExpense").innerHTML = grouped(r.categories);
   } catch (e) {
     toast(e.message);
   }
 }
-$("from").addEventListener("change", render);
-$("to").addEventListener("change", render);
-document.querySelectorAll("[data-days]").forEach((b) =>
-  b.addEventListener("click", () => {
-    const d = new Date();
-    d.setDate(d.getDate() - Number(b.dataset.days));
-    $("from").value = localDate(d);
-    $("to").value = today();
-    render();
-  }),
-);
-render();
+setupDateFilter($("period"), $("from"), $("to"), render);
 
 }

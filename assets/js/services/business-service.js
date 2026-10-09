@@ -131,12 +131,13 @@ function captureBusinessProfile(d) {
   return profile.id;
 }
 function postInvoice(d, i) {
-  checkStock(d, i.items);
+  const trackStock = i.stockTracked !== false;
+  if (trackStock) checkStock(d, i.items);
   for (const x of i.items) {
     x.unitCost = Number(x.unitCost || 0);
     if (x.productId) {
       x.unitCost = Number(find(d, "products", x.productId).cost || 0);
-      stockMove(
+      if (trackStock) stockMove(
         d,
         x.productId,
         -x.qty,
@@ -177,9 +178,10 @@ export const saveInvoice = (o, lines, finalise = false) =>
         reverseInvoiceStock(d, i, "Invoice edit reversal");
       }
     } else {
-      i = { id: uid("i"), number: nextNumber(d, "invoices") };
+      i = { id: uid("i"), number: nextNumber(d, "invoices"), stockTracked: d.settings.stockTracking !== false };
       d.invoices.push(i);
     }
+    if (i.state === "draft" && i.stockTracked == null) i.stockTracked = d.settings.stockTracking !== false;
     Object.assign(i, calc, {
       taxLabel: tax.taxLabel,
       date: o.date,
@@ -216,6 +218,7 @@ export const duplicateInvoice = (id) =>
       dueDate: today(),
       state: "draft",
       voided: false,
+      stockTracked: false,
       creditApplied: 0,
       legacy: false,
     };
@@ -255,6 +258,7 @@ export function invoiceEditBlockReason(d, id) {
   return "";
 }
 function reverseInvoiceStock(d, i, type) {
+  if (i.stockTracked === false) return;
   for (const x of i.items || [])
     if (x.productId)
       stockMove(
@@ -275,7 +279,7 @@ export const voidDocument = (type, id) =>
     const reason = documentCancelBlockReason(d, type, id);
     if (reason) throw Error(reason);
     for (const x of i.items || [])
-      if (x.productId)
+      if (i.stockTracked !== false && x.productId)
         stockMove(
           d,
           x.productId,
@@ -300,7 +304,7 @@ export function documentCancelBlockReason(d, type, id) {
     return type === "invoices"
       ? "Payments, credits or returns are linked. Use Return / credit note to correct this invoice."
       : "Payments, credits or refunds are linked. This purchase must be retained for payment history.";
-  if (type === "purchases") {
+  if (type === "purchases" && i.stockTracked !== false) {
     const grouped = new Map();
     for (const line of i.items || [])
       if (line.productId) grouped.set(line.productId, (grouped.get(line.productId) || 0) + Number(line.qty));
@@ -336,7 +340,7 @@ export const savePurchase = (o, lines) =>
       vendorBillNo,
       notes: String(o.notes || ""),
       state: "posted",
-      currency: d.settings.currency,
+      currency: d.settings.currency, stockTracked: true,
     };
     d.purchases.push(i);
     for (const x of i.items)
@@ -492,22 +496,20 @@ function saveMasterIn(d, type, input) {
     throw Error(`Duplicate barcode: ${barcode}`);
   const allowed =
     type === "products"
-      ? ["sku", "unit", "barcode", "image"]
+      ? ["sku", "unit", "barcode", "image", "vendorId", "vendorName"]
       : ["contact", "phone", "email", "address", "notes"];
   const x = { ...(existing || {}), id: existing?.id || uid(type[0]), name };
   for (const k of allowed) x[k] = String(o[k] || "").trim();
   if (type === "products") {
     x.cost = number(o.cost || 0, "Cost");
     x.price = number(o.price || 0, "Selling price");
-    x.low = number(o.low || 0, "Low-stock threshold");
-    const target = number(
-      o.qty ?? 0,
-      "Quantity",
-      d.settings.allowNegativeStock ? -1e9 : 0,
-    );
+    const vendor = o.vendorId ? d.vendors.find((v) => v.id === o.vendorId) : null;
+    x.vendorId = vendor?.id || "";
+    x.vendorName = vendor?.name || String(o.vendorName || "");
     x.qty = Number(existing?.qty || 0);
     if (existing) Object.assign(existing, x);
     else d.products.push(x);
+    const target = d.settings.stockTracking === false ? x.qty : number(o.qty ?? x.qty, "Quantity", d.settings.allowNegativeStock ? -1e9 : 0);
     const delta = round(target - x.qty);
     if (delta)
       stockMove(
@@ -765,7 +767,8 @@ export const saveReturn = (o) =>
       tax: p.tax,
       amount: p.amount,
       date: o.date,
-      restock: o.restock === "yes" && !!p.line.productId ? "yes" : "no",
+      restock: i.stockTracked !== false && o.restock === "yes" && !!p.line.productId ? "yes" : "no",
+      costReversed: i.stockTracked === false || (o.restock === "yes" && !!p.line.productId),
       reason,
       unitCost: p.line.unitCost ?? null,
     };
@@ -896,7 +899,7 @@ export const saveSaleDeal = (o, lines) => transaction((d) => {
       customerId: customer.id, customerName: customer.name, personId: customer.personId,
       customerSnapshot: structuredClone(d.people.find((p) => p.id === customer.personId) || customer),
       date: o.date, validUntil: o.validUntil, notes: String(o.notes || ""), status: "Open",
-      currency: d.settings.currency,
+      currency: d.settings.currency, stockTracked: d.settings.stockTracking !== false,
     };
     d.quotes.push(q);
     audit(d, "Quote created", q.number, q.id);
@@ -906,10 +909,11 @@ export const saveSaleDeal = (o, lines) => transaction((d) => {
   dates({ date: o.date, dueDate });
   const i = {
     id: uid("i"), number: nextNumber(d, "invoices"), ...calc,
+    stockTracked: d.settings.stockTracking !== false,
     taxLabel: tax.taxLabel,
     date: o.date, dueDate, customerId: customer.id, customerName: customer.name,
     personId: customer.personId, notes: String(o.notes || ""), state: "draft", voided: false,
-    currency: d.settings.currency,
+      currency: d.settings.currency,
   };
   d.invoices.push(i);
   postInvoice(d, i);
@@ -925,30 +929,37 @@ export const saveSaleDeal = (o, lines) => transaction((d) => {
 
 export const savePurchaseDeal = (o, lines) => transaction((d) => {
   dates(o);
-  const vendor = resolveParty(d, "vendor", {
+  const vendor = (o.vendorId || String(o.vendorName || "").trim()) ? resolveParty(d, "vendor", {
     vendorId: o.vendorId, name: o.vendorName, phone: o.phone, email: o.email, address: o.address,
-  });
+  }) : null;
   const vendorBillNo = String(o.vendorBillNo || "").trim();
-  if (vendorBillNo && d.purchases.some((x) => x.vendorId === vendor.id && String(x.vendorBillNo || "").toLowerCase() === vendorBillNo.toLowerCase()))
+  if (vendorBillNo && vendor && d.purchases.some((x) => x.vendorId === vendor.id && String(x.vendorBillNo || "").toLowerCase() === vendorBillNo.toLowerCase()))
     throw Error("This vendor bill number already exists for this vendor.");
+  const investmentMode = d.settings.stockTracking === false;
+  const inventoryCost = number(o.inventoryCost ?? 0, "Inventory cost", 0);
+  const shipping = number(o.shipping ?? 0, "Shipping", 0);
+  const rate = o.taxRate == null || o.taxRate === "" ? Number(d.settings.hstRate || 0) : percentage(o.taxRate);
+  const label = String(o.taxLabel || d.settings.taxLabel || "Tax").trim();
+  const subtotal = investmentMode ? round(inventoryCost + shipping) : 0;
+  const tax = investmentMode ? round(number(o.taxAmount ?? subtotal * rate / 100, "Tax amount", 0)) : 0;
   const i = {
-    id: uid("pb"), number: nextNumber(d, "purchases"), ...totals(d, lines, 0),
-    taxLabel: d.settings.taxLabel || "HST",
-    date: o.date, dueDate: o.dueDate || o.date, vendorId: vendor.id, vendorName: vendor.name,
-    personId: vendor.personId, vendorBillNo, notes: String(o.notes || ""), state: "posted",
+    id: uid("pb"), number: nextNumber(d, "purchases"), ...(investmentMode ? { items: [], subtotal, discount: 0, taxable: subtotal, tax, taxRate: rate, total: round(subtotal + tax), kind: "investment", stockTracked: false, inventoryCost, shipping } : totals(d, lines, 0)),
+    taxLabel: label,
+    date: o.date, dueDate: o.dueDate || o.date, vendorId: vendor?.id || "", vendorName: vendor?.name || "",
+    personId: vendor?.personId || "", vendorBillNo, notes: String(o.notes || ""), state: "posted",
     currency: d.settings.currency, businessProfileId: captureBusinessProfile(d), businessSnapshot: { ...structuredClone(d.settings), logoDataUrl: "" },
-    vendorSnapshot: structuredClone(d.people.find((p) => p.id === vendor.personId) || vendor),
+    vendorSnapshot: vendor ? structuredClone(d.people.find((p) => p.id === vendor.personId) || vendor) : null,
     postedAt: new Date().toISOString(),
   };
   d.purchases.push(i);
-  for (const x of i.items) if (x.productId) stockMove(d, x.productId, x.qty, "Purchase", i.number, x.description, i.date);
+  if (i.stockTracked !== false) for (const x of i.items) if (x.productId) stockMove(d, x.productId, x.qty, "Purchase", i.number, x.description, i.date);
   const preset = o.paymentPreset || "full";
   let amount = preset === "unpaid" ? 0 : preset === "partial" ? number(o.paymentAmount || 0, "Payment", 0) : i.total;
   if (amount > 0) {
     d.vendorPayments.push({ id: uid("pay"), purchaseId: i.id, date: o.paymentDate || o.date, amount: round(amount), method: String(o.paymentMethod || "Cash"), reference: String(o.paymentReference || ""), notes: "Recorded with purchase" });
     audit(d, "Vendor payment recorded", `${i.number}: ${round(amount)}`, i.id);
   }
-  audit(d, "Purchase saved", `${i.number} · ${vendor.name}`, i.id);
+  audit(d, "Purchase saved", `${i.number}${vendor ? ` · ${vendor.name}` : ""}`, i.id);
   return i.id;
 });
 
@@ -960,7 +971,7 @@ export const convertQuoteToSale = (id) => transaction((d) => {
     id: uid("i"), number: nextNumber(d, "invoices"),
     items: structuredClone(q.items || []).map((x) => ({ ...x, lineId: uid("line") })),
     subtotal: q.subtotal, discount: q.discount, taxable: q.taxable, tax: q.tax, taxRate: q.taxRate, total: q.total,
-    taxLabel: q.taxLabel || "HST",
+    taxLabel: q.taxLabel || "HST", stockTracked: q.stockTracked !== false,
     customerId: q.customerId, customerName: q.customerName, personId: q.personId || "",
     date: today(), dueDate, state: "draft", voided: false, notes: `Converted from ${q.number}${q.notes ? " · " + q.notes : ""}`, currency: q.currency || d.settings.currency,
   };

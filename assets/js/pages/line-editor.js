@@ -3,7 +3,7 @@ import { totals } from "../services/business-service.js";
 
 export function lineEditor(purchase = false, { onTotals } = {}) {
   const rows = $("rows"), form = $("form");
-  const productOptions = () => option("", "Service / one-time charge (no stock)") + db.products.map((p) => option(p.id, p.name)).join("");
+  const productOptions = () => option("", "One-time invoice line (not in catalog)") + db.products.map((p) => option(p.id, p.name)).join("");
   const error = document.createElement("p");
   error.className = "inline-error";
   error.setAttribute("role", "status");
@@ -43,12 +43,11 @@ export function lineEditor(purchase = false, { onTotals } = {}) {
   function selectProduct(row, productId) {
     row.querySelector(".prod").value = productId;
     const product = db.products.find((item) => item.id === productId);
-    const unit = row.querySelector(".unit");
-    unit.readOnly = !!product;
     if (product) {
       row.querySelector(".price").value = purchase ? product.cost : product.price;
       row.querySelector(".desc").value = product.name;
-      unit.value = product.unit || "pcs";
+      row.querySelector(".unit").value = product.unit || "pcs";
+      row.querySelector(".quantity-combined").value = `${row.querySelector(".qty").value} ${product.unit || "pcs"}`;
     }
     calculate();
   }
@@ -57,15 +56,20 @@ export function lineEditor(purchase = false, { onTotals } = {}) {
     const row = document.createElement("div");
     row.className = "invoice-row";
     row.innerHTML = `<label class="line-field product-field"><span>Product</span><select class="prod" aria-label="Product">${productOptions()}</select></label>
-      <label class="line-field quantity-field"><span>Quantity (with unit)</span><span class="quantity-control"><input aria-label="Quantity" class="qty" type="number" required min=".01" max="1000000" step=".01" value="${esc(item.qty ?? 1)}"><input aria-label="Unit used with quantity" class="unit" maxlength="50" placeholder="pcs" value="${esc(item.unit || product?.unit || "pcs")}"></span></label>
-      <label class="line-field price-field"><span>${purchase ? "Cost per unit" : "Price per unit"}</span><input aria-label="${purchase ? "Cost per unit" : "Price per unit"}" class="price" type="number" required min="0" step=".01" value="${esc(item.price ?? 0)}"></label>
-      <label class="line-field description-field"><span>Description</span><input aria-label="Description" class="desc" required placeholder="Item description" value="${esc(item.description || "")}"></label>
+      <label class="line-field quantity-field"><span>Quantity</span><span class="quantity-control"><input aria-label="Quantity and unit" class="quantity-combined" type="text" inputmode="decimal" required value="${esc(`${item.qty ?? 1} ${item.unit || product?.unit || "pcs"}`)}"><input aria-label="Quantity" class="qty" type="hidden" value="${esc(item.qty ?? 1)}"><input aria-label="Unit" class="unit" type="hidden" value="${esc(item.unit || product?.unit || "pcs")}"></span></label>
+      <label class="line-field price-field"><span>${purchase ? "Cost per unit" : "Price per unit"}</span><input aria-label="${purchase ? "Cost per unit" : "Price per unit"}" class="price" type="number" ${purchase ? "" : "required"} min="0" step=".01" value="${esc(item.price ?? 0)}"></label>
+      <label class="line-field description-field"><span>Description</span><input aria-label="Description" class="desc" ${purchase ? "" : "required"} placeholder="Item description" value="${esc(item.description || "")}"></label>
       <button type="button" class="btn danger remove-line" aria-label="Remove line">×</button>`;
     rows.append(row);
     row.querySelector(".prod").value = item.productId || "";
-    row.querySelector(".unit").readOnly = !!product;
     row.querySelector(".prod").addEventListener("change", () => selectProduct(row, row.querySelector(".prod").value));
-    row.querySelectorAll("input").forEach((input) => input.addEventListener("input", calculate));
+    row.querySelector(".quantity-combined").addEventListener("input", () => {
+      const match = row.querySelector(".quantity-combined").value.trim().match(/^((?:[0-9]+\.?[0-9]*|\.[0-9]+))\s*(.*)$/);
+      row.querySelector(".qty").value = match?.[1] || "";
+      if (match?.[2]) row.querySelector(".unit").value = match[2].trim();
+      calculate();
+    });
+    row.querySelectorAll(".price, .desc").forEach((input) => input.addEventListener("input", calculate));
     row.querySelector(".remove-line").addEventListener("click", () => { row.remove(); calculate(); });
     calculate();
     return row;
@@ -86,15 +90,16 @@ export function lineEditor(purchase = false, { onTotals } = {}) {
     const available = [...rows.children].find((row) => !row.querySelector(".prod").value && !row.querySelector(".desc").value);
     const row = available || add();
     selectProduct(row, productId);
-    row.querySelector(".qty").focus();
+    row.querySelector(".quantity-combined").focus();
   }
   function addOrIncrementProduct(productId) {
     refreshProducts();
     let row = [...rows.children].find((item) => item.querySelector(".prod").value === productId);
     if (row) {
-      const qty = row.querySelector(".qty");
+      const qty = row.querySelector(".qty"), combined = row.querySelector(".quantity-combined");
       qty.value = String((Number(qty.value) || 0) + 1);
-      qty.dispatchEvent(new Event("input", { bubbles: true }));
+      combined.value = `${qty.value} ${row.querySelector(".unit").value}`;
+      calculate();
     } else {
       row = [...rows.children].find((item) => !item.querySelector(".prod").value && !item.querySelector(".desc").value) || add();
       selectProduct(row, productId);

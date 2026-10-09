@@ -38,6 +38,8 @@ function preview() {
 }
 $("invoice").addEventListener("change", () => {
   const i = db.invoices.find((i) => i.id === $("invoice").value);
+  $("restockField").hidden = i?.stockTracked === false;
+  if (i?.stockTracked === false) form.elements.namedItem("restock").value = "no";
   $("product").innerHTML = (i?.items || [])
     .map((x) => option(x.lineId, `${x.description} · originally ${x.qty}`))
     .join("");

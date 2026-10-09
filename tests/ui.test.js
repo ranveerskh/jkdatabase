@@ -72,7 +72,7 @@ const fillSale = async (payment = "full") => {
   await page.locator("#newSale").click();
   await page.locator("#customerName").fill("Test Customer");
   await page.locator("#rows .prod").selectOption("widget");
-  await page.locator("#rows .qty").fill("2");
+  await page.locator("#rows .quantity-combined").fill("2 pcs");
   await page.locator('#form [name="taxLabel"]').fill("GST");
   await page.locator('#form [name="taxRate"]').fill("5");
   await page.locator(`#form input[name="paymentPreset"][value="${payment}"]`).check();
@@ -96,7 +96,7 @@ try {
     await page.locator("#productCatalog [data-product-id='widget']").click();
     await page.locator("#productCatalog [data-product-id='widget']").click();
     assert.equal(await page.locator("#rows .invoice-row").count(), 1);
-    assert.equal(await page.locator("#rows .qty").inputValue(), "2");
+    assert.equal(await page.locator("#rows .quantity-combined").inputValue(), "2 pcs");
     await page.locator("#scanCode").fill("TEA123");
     await page.locator("#scanCode").press("Enter");
     assert.equal(await page.locator("#rows .invoice-row").count(), 2);
@@ -123,7 +123,7 @@ try {
   });
   await fillSale();
   await check("quantity, unit and custom tax update totals and payment", async () => {
-    assert.equal(await page.locator("#rows .unit").inputValue(), "pcs");
+    assert.equal(await page.locator("#rows .quantity-combined").inputValue(), "2 pcs");
     assert.equal(await page.locator("#rows .quantity-control").count(), 1);
     assert.equal(await page.locator("#total").textContent(), "$21.00");
     await page.locator('#form [name="taxRate"]').fill("0");
@@ -135,7 +135,7 @@ try {
     for (const [name, width, height] of [["desktop", 1440, 1000], ["phone", 390, 844], ["ipad", 768, 1024]]) {
       await page.setViewportSize({ width, height });
       await page.locator("#rows").scrollIntoViewIfNeeded();
-      for (const field of [".qty", ".unit", ".price", ".desc"]) assert.equal(await page.locator("#rows " + field).isVisible(), true);
+      for (const field of [".quantity-combined", ".price", ".desc"]) assert.equal(await page.locator("#rows " + field).isVisible(), true);
       assert.equal(await page.evaluate(() => document.querySelector("#dlg").scrollWidth <= document.querySelector("#dlg").clientWidth + 1), true);
       await page.screenshot({ path: resolve(output, `${name}-sale.png`) });
     }
@@ -156,7 +156,7 @@ try {
     const data = await db();
     assert.equal(data.invoices.length, 1);
     assert.equal(data.payments.length, 1);
-    assert.equal(data.products.find((product) => product.id === "widget").qty, 8);
+    assert.equal(data.products.find((product) => product.id === "widget").qty, 10);
     assert.equal(await page.locator(".auth-gate").count(), 0);
   });
   await check("Print / Save PDF works and single-page Letter/A4 output is generated", async () => {
@@ -176,7 +176,7 @@ try {
     await preview.close();
   });
   await check("normal navigation reuses Auth, cloud data and one page shell", async () => {
-    await page.getByRole("link", { name: "Purchases", exact: true }).click();
+    await page.getByRole("link", { name: "Purchases & Investments", exact: true }).click();
     await page.locator("#newPurchase").waitFor();
     await page.getByRole("link", { name: "Sales", exact: true }).click();
     await page.locator("#newSale").waitFor();
@@ -228,41 +228,39 @@ try {
     assert.equal(await page.evaluate(() => window.__navigationMarker), "same-session");
     assert.equal(await page.evaluate(() => window.__testCloud.metrics.membershipReads), 1);
   });
-  await check("two new products can be created, selected and saved without a disabled button", async () => {
+  await check("products can be created from sales without quantity setup", async () => {
     await page.locator("#newSale").click();
-    for (const [name, unit] of [["Test Box", "box"], ["Test Kg", "kg"]]) {
+    for (const name of ["Test Box", "Test Kg"]) {
       await page.locator("#quickProduct").click();
       await page.locator('#productForm [name="name"]').fill(name);
-      await page.locator('#productForm [name="unit"]').fill(unit);
       await page.locator('#productForm [name="cost"]').fill("4");
       await page.locator('#productForm [name="price"]').fill("10");
       await page.locator("#productForm button.btn.primary").click();
       await page.locator("#productDlg").waitFor({ state: "hidden" });
-      assert.equal(await page.locator("#rows .unit").last().inputValue(), unit);
+      assert.equal(await page.locator("#rows .desc").last().inputValue(), name);
       assert.equal(await page.locator("#productForm button.btn.primary").isEnabled(), true);
     }
     assert.equal(await page.locator("#rows .invoice-row").count(), 2);
     await closeSale();
   });
-  await check("purchase totals clear invalid input, reset cleanly and save quantity/payment links", async () => {
+  await check("investment form records product cost, shipping, tax and partial payment", async () => {
     await go("/pages/purchases.html");
     await page.locator("#newPurchase").click();
     await page.locator("#vendorName").fill("Test Vendor");
-    await page.locator("#rows .prod").selectOption("widget");
-    await page.locator("#rows .qty").fill("3");
-    assert.equal(await page.locator("#total").textContent(), "$13.56");
-    await page.locator("#rows .qty").fill("");
-    assert.equal(await page.locator("#total").textContent(), "—");
-    assert.equal(await page.locator("#sub").textContent(), "—");
-    await page.locator("#rows .qty").fill("3");
+    await page.locator("#inventoryCost").fill("100");
+    await page.locator("#shipping").fill("10");
+    await page.locator("#taxRate").fill("5");
+    assert.equal(await page.locator("#total").textContent(), "$115.50");
     await page.locator('input[name="paymentPreset"][value="partial"]').check();
     await page.locator("#paymentAmount").fill("5");
     await page.locator("#form button.btn.primary").click();
     await page.locator("#dlg").waitFor({ state: "hidden" });
     const data = await db();
-    assert.equal(data.products.find((product) => product.id === "widget").qty, 11);
-    assert.equal(data.purchases[0].items[0].qty, 3);
-    assert.equal(data.purchases[0].items[0].unit, "pcs");
+    assert.equal(data.products.find((product) => product.id === "widget").qty, 10);
+    assert.equal(data.purchases[0].inventoryCost, 100);
+    assert.equal(data.purchases[0].shipping, 10);
+    assert.equal(data.purchases[0].taxRate, 5);
+    assert.equal(data.purchases[0].total, 115.5);
     assert.equal(data.vendorPayments[0].amount, 5);
     await page.locator("#newPurchase").click();
     assert.equal(await page.locator("#sub").textContent(), "$0.00");
@@ -282,7 +280,7 @@ try {
     const data = await db();
     assert.equal(data.returns[0].invoiceId, data.invoices[0].id);
     assert.equal(data.returns[0].amount, 10.5);
-    assert.equal(data.products.find((product) => product.id === "widget").qty, 12);
+    assert.equal(data.products.find((product) => product.id === "widget").qty, 10);
   });
   await check("eligible unpaid invoice cancellation restores stock and retains history", async () => {
     await go("/pages/sales.html");
@@ -295,7 +293,7 @@ try {
     await page.getByRole("button", { name: "Cancel invoice", exact: true }).first().click();
     await page.getByText("Cancelled", { exact: true }).waitFor();
     const cancelled = await db();
-    assert.equal(cancelled.products.find((product) => product.id === "widget").qty, 12);
+    assert.equal(cancelled.products.find((product) => product.id === "widget").qty, 10);
     assert.equal(cancelled.invoices.length, 2);
     assert.equal(cancelled.invoices[1].state, "void");
   });
@@ -328,7 +326,7 @@ try {
     await page.getByText("Test Box Updated", { exact: true }).waitFor({ state: "detached" });
     await page.locator("#list tbody tr").filter({ hasText: "Widget" }).getByRole("button", { name: "Delete", exact: true }).click();
     await page.locator("#toast.show").waitFor();
-    assert.equal((await db()).products.find((product) => product.id === "widget").qty, 12);
+    assert.equal((await db()).products.find((product) => product.id === "widget").qty, 10);
   });
   await check("failed cloud save keeps the form and all financial/stock data unchanged", async () => {
     await go("/pages/sales.html");

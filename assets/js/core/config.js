@@ -47,6 +47,7 @@ export const DEFAULT_SETTINGS = {
   nextPurchase: 1,
   lowStockDefault: 5,
   allowNegativeStock: false,
+  stockTracking: false,
   defaultDueDays: 30,
   defaultQuoteDays: 30,
   accentColor: "#155eef",

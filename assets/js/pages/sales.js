@@ -13,12 +13,12 @@ function renderCatalog() {
   const query = $("catalogSearch").value.trim().toLowerCase();
   const products = db.products.filter((p) => `${p.name} ${p.sku || ""} ${p.barcode || ""}`.toLowerCase().includes(query));
   $("productCatalog").innerHTML = products.length ? products.map((p) => {
-    const unavailable = dealType() === "sale" && !db.settings.allowNegativeStock && Number(p.qty) <= 0;
+    const unavailable = db.settings.stockTracking !== false && dealType() === "sale" && !db.settings.allowNegativeStock && Number(p.qty) <= 0;
     const thumb = /^data:image\/(png|jpeg|webp);base64,/i.test(p.image || "")
       ? `<img src="${p.image}" alt="" loading="lazy">` : esc((p.name || "?").slice(0, 1).toUpperCase());
-    return `<button type="button" class="catalog-product" data-product-id="${esc(p.id)}" ${unavailable ? "disabled" : ""} aria-label="Add ${esc(p.name)} to sale"><span class="catalog-product-thumb">${thumb}</span><span class="catalog-product-info"><b>${esc(p.name)}</b><small>${esc(p.sku || p.barcode || "No SKU")}</small><small>${Number(p.qty) || 0} ${esc(p.unit || "pcs")} · ${money(p.price)}</small></span></button>`;
+    return `<button type="button" class="catalog-product" data-product-id="${esc(p.id)}" ${unavailable ? "disabled" : ""} aria-label="Add ${esc(p.name)} to sale"><span class="catalog-product-thumb">${thumb}</span><span class="catalog-product-info"><b>${esc(p.name)}</b><small>${esc(p.sku || p.barcode || "No SKU")}</small><small>${money(p.price)}</small></span></button>`;
   }).join("") : '<p class="empty">No matching products.</p>';
-  $("catalogMessage").textContent = products.length ? "Tap a product to add it. Tap it again to increase the quantity." : "Create a product in Products & Stock or change your search.";
+  $("catalogMessage").textContent = products.length ? "Tap a product to add it. Tap it again to increase the quantity." : "Add a product in Product Catalog or change your search.";
 }
 function addScannedCode(raw) {
   const code = String(raw || "").trim().toLowerCase();
@@ -26,7 +26,7 @@ function addScannedCode(raw) {
   const product = db.products.find((p) => String(p.barcode || "").trim().toLowerCase() === code) ||
     db.products.find((p) => String(p.sku || "").trim().toLowerCase() === code);
   if (!product) { toast(`No product found for “${String(raw).trim()}”. Check its SKU or barcode.`); return; }
-  if (!db.settings.allowNegativeStock && Number(product.qty) <= 0) { toast(`${product.name} is out of stock.`); return; }
+  if (db.settings.stockTracking !== false && !db.settings.allowNegativeStock && Number(product.qty) <= 0) { toast(`${product.name} is out of stock.`); return; }
   lines.addOrIncrementProduct(product.id);
   toast(`${product.name} added to this sale.`, "ok");
 }
@@ -192,7 +192,7 @@ function render() {
   });
   $("count").textContent = `${filtered.length} of ${records.length} records`;
   $("list").innerHTML = filtered.length ? filtered.map((x) => {
-    if (x.kind === "quote") return `<article class="record-card" data-search="${esc((x.customerName+' '+x.number).toLowerCase())}"><div class="record-main"><b>${esc(x.customerName)}</b><small>${esc(x.number)} · Quote · ${esc(x.date)}</small></div><div class="record-stat"><small>Total</small><b>${money(x.total)}</b></div><div class="record-stat"><small>Valid until</small><b>${esc(x.validUntil||'—')}</b></div><div class="record-stat optional-stat"><small>Status</small><b>${esc(x.status)}</b></div><div class="record-stat optional-stat"><small>Stock</small><b>Not reserved</b></div><div class="record-actions">${x.status !== "Converted" ? `<button class="btn small primary" data-action="convert" data-id="${esc(x.id)}">Convert to Sale</button>` : `<span class="badge paid">Converted</span>`}</div></article>`;
+    if (x.kind === "quote") return `<article class="record-card" data-search="${esc((x.customerName+' '+x.number).toLowerCase())}"><div class="record-main"><b>${esc(x.customerName)}</b><small>${esc(x.number)} · Quote · ${esc(x.date)}</small></div><div class="record-stat"><small>Total</small><b>${money(x.total)}</b></div><div class="record-stat"><small>Valid until</small><b>${esc(x.validUntil||'—')}</b></div><div class="record-stat optional-stat"><small>Status</small><b>${esc(x.status)}</b></div><div class="record-stat optional-stat"><small>Type</small><b>Quote only</b></div><div class="record-actions">${x.status !== "Converted" ? `<button class="btn small primary" data-action="convert" data-id="${esc(x.id)}">Convert to Sale</button>` : `<span class="badge paid">Converted</span>`}</div></article>`;
     const status = invoiceStatus(x), due = invoiceBalance(x), credit = creditBalance(x);
     return `<article class="record-card"><div class="record-main"><b>${esc(x.customerName)}</b><small>${esc(x.number)} · ${esc(x.date)}</small></div><div class="record-stat"><small>Total</small><b>${money(x.total)}</b></div><div class="record-stat"><small>Paid</small><b>${money(customerPaid(x.id))}</b></div><div class="record-stat optional-stat"><small>Due</small><b>${money(due)}</b></div><div class="record-stat optional-stat"><small>Status</small><b><span class="badge ${esc(status.toLowerCase().replaceAll(' ',''))}">${esc(status)}</span>${credit ? ` · ${money(credit)} credit` : ''}</b></div><div class="record-actions">${invoiceActions(x,due)}</div></article>`;
   }).join("") : '<div class="empty card">No matching sales or quotes.</div>';
@@ -207,10 +207,10 @@ $("list").addEventListener("click", async (e) => {
     if(action==="duplicate") { const duplicateId=await duplicateInvoice(id); await navigateTo(`invoices.html?edit=${encodeURIComponent(duplicateId)}`); }
     if(action==="edit") await navigateTo(`invoices.html?edit=${encodeURIComponent(id)}`);
     if(action==="return") await navigateTo(`returns.html?invoice=${encodeURIComponent(id)}`);
-    if(action==="finalise" && confirm("Finalise this draft and reduce stock?")){ await finaliseInvoice(id); await refreshPage(); }
+    if(action==="finalise" && confirm("Finalise this invoice and record it in your reports?")){ await finaliseInvoice(id); await refreshPage(); }
     if(action==="delete" && await confirmTypedDelete("draft invoice", "Only drafts can be deleted. Finalised invoices are retained for accounting history.")){ await deleteRecord("invoices",id); await refreshPage(); }
-    if(action==="convert") { if(confirm("Convert this quote to a sale? Stock will be reduced and the new invoice will start unpaid.")){ const preview = openPrintWindow(); try { const invoiceId=await convertQuoteToSale(id); printInvoice(invoiceId, preview); await refreshPage(); } catch (error) { preview?.close(); throw error; } } }
-    if(action==="void" && confirm("Cancel this unpaid invoice? Its stock will be restored and its outstanding balance removed. The invoice will remain in history.")){ await voidDocument("invoices",id); await refreshPage(); }
+    if(action==="convert") { if(confirm("Convert this quote to an invoice? It will start unpaid.")){ const preview = openPrintWindow(); try { const invoiceId=await convertQuoteToSale(id); printInvoice(invoiceId, preview); await refreshPage(); } catch (error) { preview?.close(); throw error; } } }
+    if(action==="void" && confirm("Cancel this unpaid invoice? The outstanding balance will be removed. The invoice will remain in history.")){ await voidDocument("invoices",id); await refreshPage(); }
     if(action==="pay") {
       const i=db.invoices.find((x)=>x.id===id); paymentForm.reset(); paymentForm.elements.invoiceId.value=id; paymentForm.elements.amount.value=invoiceBalance(i).toFixed(2); paymentForm.elements.date.value=today(); $("paymentDoc").textContent=`${i.number} · ${i.customerName} · Remaining ${money(invoiceBalance(i))}`; $("paymentDlg").showModal();
     }
