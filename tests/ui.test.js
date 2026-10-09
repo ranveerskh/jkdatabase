@@ -103,6 +103,23 @@ try {
     assert.equal(await page.locator("#rows .prod").nth(1).inputValue(), "tea");
     await closeSale();
   });
+  await check("quick sale shows a searchable product catalog and carries clicked/scanned items to checkout", async () => {
+    await go("/pages/quick-sale.html");
+    await page.locator("#kioskSearch").fill("Widget");
+    assert.equal(await page.locator("#kioskCatalog [data-kiosk-product='widget']").count(), 1);
+    await page.locator("#kioskCatalog [data-kiosk-product='widget']").click();
+    await page.locator("#kioskCatalog [data-kiosk-product='widget']").click();
+    await page.locator("#kioskSearch").fill("");
+    await page.locator("#kioskScanCode").fill("TEA123");
+    await page.locator("#kioskScanCode").press("Enter");
+    assert.equal(await page.locator("#kioskCount").textContent(), "3");
+    await page.locator("#kioskCheckout").click();
+    await page.locator("#dlg").waitFor({ state: "visible" });
+    assert.equal(await page.locator("#rows .invoice-row").count(), 2);
+    assert.equal(await page.locator("#rows .quantity-combined").nth(0).inputValue(), "2 pcs");
+    assert.equal(await page.locator("#rows .quantity-combined").nth(1).inputValue(), "1 kg");
+    await closeSale();
+  });
   await check("sale/quote dates and payments toggle correctly; UI copy is English", async () => {
     await page.locator("#newSale").click();
     assert.equal(await page.locator("#validWrap").isVisible(), false);
@@ -374,6 +391,23 @@ try {
     await longInvoice.pdf({ path: resolve(output, "long-invoice-letter.pdf"), format: "Letter", printBackground: true });
     await longInvoice.pdf({ path: resolve(output, "long-invoice-a4.pdf"), format: "A4", printBackground: true });
     await longInvoice.close();
+  });
+  await check("admin reset downloads a backup and clears all business records with explicit typed confirmation", async () => {
+    await go("/pages/settings.html");
+    const download = page.waitForEvent("download");
+    await page.locator("#reset").click();
+    await page.locator(".typed-delete-dialog").waitFor({ state: "visible" });
+    await page.locator("#typed-delete-word").fill("DELETE");
+    await page.locator(".typed-delete-dialog [data-confirm]").click();
+    await download;
+    await page.locator("#toast.show").waitFor();
+    const reset = await db();
+    assert.deepEqual(reset.invoices, []);
+    assert.deepEqual(reset.products, []);
+    assert.deepEqual(reset.customers, []);
+    assert.deepEqual(reset.audit, []);
+    assert.equal(reset.settings.businessName, "JK Database");
+    assert.equal(await page.evaluate(() => window.__testCloud.metrics.membershipReads), 1);
   });
   await check("signed-out users return to login before cloud records are loaded", async () => {
     const loggedOut = await createContext(null);

@@ -91,7 +91,7 @@ function invoiceActions(x, due) {
     ].filter(Boolean).join("");
   return `<details class="record-menu"><summary class="btn small" aria-label="Actions for ${esc(x.number)}">Actions <span aria-hidden="true">▾</span></summary><div class="record-menu-panel">${controls}</div></details>`;
 }
-function openDeal(kind="sale", source=null) {
+function openDeal(kind="sale", source=null, cartItems=null) {
   form.reset(); $("customerId").value = ""; $("date").value = today(); $("paymentDate").value = today();
   dueDateManuallySet = false;
   form.elements.namedItem("taxLabel").value = source?.taxLabel || db.settings.taxLabel || "HST";
@@ -105,7 +105,8 @@ function openDeal(kind="sale", source=null) {
     $("customerPhone").value = profile?.phone || ""; $("customerEmail").value = profile?.email || ""; $("customerAddress").value = profile?.address || "";
     form.elements.namedItem("discount").value = source.discount || 0; $("notes").value = source.notes || ""; lines.set(source.items || [{}]);
     form.querySelector('input[name="paymentPreset"][value="unpaid"]').checked = true;
-  } else lines.set([{}]);
+  } else if (cartItems?.length) lines.set(cartItems);
+  else lines.set([{}]);
   syncCustomer(); syncDealType(); lines.calculate(); syncPayment(); dlg.showModal();
   setTimeout(() => $("customerName").focus(), 0);
 }
@@ -228,7 +229,13 @@ $("productForm").addEventListener("submit",async(e)=>{e.preventDefault(); const 
 document.addEventListener("keydown",(e)=>{ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="n"&&!dlg.open){e.preventDefault();openDeal("sale");} }, { signal });
 render(); renderCatalog();
 const pageParams = new URLSearchParams(location.search);
-if (pageParams.get("new") === "sale" || pageParams.get("new") === "quote")
-  openDeal(pageParams.get("new"));
+if (pageParams.get("new") === "sale" || pageParams.get("new") === "quote") {
+  let kioskCart = null;
+  if (pageParams.get("kiosk") === "1") {
+    try { kioskCart = JSON.parse(sessionStorage.getItem("jkDatabaseKioskCart") || "null"); } catch { kioskCart = null; }
+    sessionStorage.removeItem("jkDatabaseKioskCart");
+  }
+  openDeal(pageParams.get("new"), null, Array.isArray(kioskCart) ? kioskCart : null);
+}
 
 }

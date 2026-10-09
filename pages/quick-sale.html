@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#0b1220" />
+  <title>Quick Sale | JK Database</title>
+  <link rel="stylesheet" href="../assets/css/style.css" />
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar"></aside>
+  <main class="content">
+    <div class="topbar"><div><h1>Quick Sale</h1><div class="sub">Tap products to build a sale, then add the customer and take payment.</div></div><a class="btn" href="sales.html">Sales &amp; invoices</a></div>
+    <section class="quick-sale-layout">
+      <div class="quick-sale-products card">
+        <div class="quick-sale-tools"><label class="field"><span>Find a product</span><input id="kioskSearch" type="search" placeholder="Search name, SKU, or barcode" autocomplete="off" /></label><div class="scan-form"><label class="field"><span>Scan or type a code</span><input id="kioskScanCode" inputmode="none" autocomplete="off" placeholder="Scan, then press Enter" /></label><button id="kioskScan" class="btn" type="button">Use camera</button></div></div>
+        <p id="kioskHint" class="note" aria-live="polite"></p>
+        <div id="kioskCatalog" class="quick-sale-catalog" aria-label="Product catalog"></div>
+      </div>
+      <aside class="quick-sale-cart card" aria-label="Sale cart">
+        <h2>Current sale <span id="kioskCount" class="badge">0</span></h2>
+        <div id="kioskCart" class="quick-sale-cart-lines"><p class="empty">Tap a product to add it here.</p></div>
+        <div class="quick-sale-total"><span>Subtotal</span><b id="kioskSubtotal">$0.00</b></div>
+        <p class="note">Tax and final total are calculated at checkout using your sale tax settings.</p>
+        <button id="kioskCheckout" class="btn primary" type="button" disabled>Continue to checkout</button>
+        <button id="kioskClear" class="btn" type="button" disabled>Clear sale</button>
+      </aside>
+    </section>
+    <dialog id="kioskScanner" class="scanner-dialog"><div class="modal"><h2>Scan a product barcode</h2><video id="kioskVideo" playsinline muted></video><p class="hint" id="kioskScannerHint">Point the camera at a product barcode.</p><div class="footer"><button type="button" class="btn" id="kioskScannerCancel">Close scanner</button></div></div></dialog>
+  </main>
+</div>
+<script type="module" src="../assets/js/bootstrap.js?entry=pages/quick-sale.js"></script>
+</body>
+</html>
